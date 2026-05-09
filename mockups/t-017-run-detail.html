@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>T-017 Run Detail Mockup — Carestechs Agent Orchestrator</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Poppins', 'system-ui', 'sans-serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          colors: {
+            primary: '#0EA5E9',
+          },
+        },
+      },
+    };
+  </script>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-700 min-h-screen">
+
+  <header class="bg-white border-b border-slate-200 px-6 py-4">
+    <h1 class="text-lg font-display font-medium text-slate-900">
+      T-017 Run Detail Mockup
+      <span class="text-sm font-normal text-slate-500 ml-2">
+        — Paused (awaiting human), Running, Terminal completed, Cancel modal shown side-by-side
+      </span>
+    </h1>
+    <p class="mt-2 text-xs text-slate-500 flex flex-wrap items-center gap-3">
+      Trace record kinds:
+      <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> step</span>
+      <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> executor_call</span>
+      <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span> policy_call</span>
+      <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> webhook_event</span>
+      <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> effector_call</span>
+    </p>
+  </header>
+
+  <main class="max-w-[120rem] mx-auto px-6 py-12 grid grid-cols-1 xl:grid-cols-2 gap-12">
+
+    <!-- ================ STATE 1: Paused with awaiting human dispatch ================ -->
+    <section>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4 text-center">
+        Paused — awaiting human dispatch
+      </h2>
+      <div class="bg-slate-50 rounded-lg border border-slate-200/70 p-6">
+        <div class="flex gap-6">
+          <!-- Trace column (max-w-5xl reading-focused) -->
+          <div class="flex-1 max-w-5xl">
+            <!-- Header card -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-5">
+              <a class="text-sm text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mb-3">
+                <span class="material-icons" style="font-size: 16px;">arrow_back</span> Runs
+              </a>
+              <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-3 mb-1">
+                    <h2 class="font-display text-2xl font-semibold text-slate-900 truncate">Run <span class="font-mono text-base text-slate-500">abc12345-…-9f31</span></h2>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Paused</span>
+                  </div>
+                  <p class="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+                    <span class="font-mono">lifecycle-agent@0.3.0</span>
+                    <span>·</span>
+                    <span>docs/work-items/FEAT-042.md</span>
+                    <span>·</span>
+                    <span>started 2026-05-09 09:01</span>
+                    <span>·</span>
+                    <span>node <span class="font-mono">request_implementation</span></span>
+                  </p>
+                </div>
+                <button class="shrink-0 inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg px-3 py-1.5">
+                  <span class="material-icons" style="font-size: 16px;">cancel</span>
+                  Cancel run
+                </button>
+              </div>
+            </div>
+
+            <!-- Trace timeline -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-display text-base font-semibold text-slate-900">Trace</h3>
+                <span class="inline-flex items-center gap-1.5 text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
+                  <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                  streaming
+                </span>
+              </div>
+
+              <ol class="space-y-3" aria-live="polite">
+                <li class="flex gap-3">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-slate-500" style="font-size: 16px;">align_horizontal_left</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 14</span> · <span class="font-medium">load_work_item</span> <span class="text-slate-500">started</span></p>
+                      <span class="text-xs text-slate-400 shrink-0">09:01:04</span>
+                    </div>
+                  </div>
+                </li>
+
+                <li class="flex gap-3">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-violet-600" style="font-size: 16px;">psychology</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 14</span> · <span class="font-medium">policy_call</span> <span class="text-slate-500">claude-sonnet-4-7</span></p>
+                      <span class="text-xs text-slate-400 shrink-0">09:01:08</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">in 1,432t · out 318t · 2,140ms · tool <span class="font-mono">select_node</span></p>
+                  </div>
+                </li>
+
+                <li class="flex gap-3">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-emerald-600" style="font-size: 16px;">webhook</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 15</span> · <span class="font-medium">webhook_event</span> from <span class="font-mono">github</span></p>
+                      <span class="text-xs text-slate-400 shrink-0">09:02:21</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">issue.assigned · FEAT-042</p>
+                  </div>
+                </li>
+
+                <li class="flex gap-3">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-sky-600" style="font-size: 16px;">bolt</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 16</span> · <span class="font-medium">effector_call</span> <span class="font-mono">git_branch_create</span></p>
+                      <span class="text-xs text-slate-400 shrink-0">09:02:30</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">result: <span class="font-mono">feature/feat-042-impl</span></p>
+                  </div>
+                </li>
+
+                <li class="flex gap-3">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-emerald-600" style="font-size: 16px;">play_circle</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 16</span> · <span class="font-medium">executor_call</span> <span class="font-mono">approve_plan</span>
+                        <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 ml-1">local</span>
+                        <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 ml-1">completed</span>
+                      </p>
+                      <span class="text-xs text-slate-400 shrink-0">09:03:12</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5 font-mono truncate">result: { approved: true, planVersion: 3 }</p>
+                  </div>
+                </li>
+
+                <!-- Highlighted awaiting executor_call -->
+                <li class="flex gap-3 ring-2 ring-amber-300 rounded-lg p-2 bg-amber-50/40">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center mt-0.5">
+                    <span class="material-icons text-amber-600" style="font-size: 16px;">play_circle</span>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 17</span> · <span class="font-medium">executor_call</span> <span class="font-mono">request_implementation</span>
+                        <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 ml-1">human</span>
+                        <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 ml-1">dispatched</span>
+                      </p>
+                      <span class="text-xs text-slate-400 shrink-0">09:03:18</span>
+                    </div>
+                    <p class="text-xs text-slate-600 mt-1 font-mono">intake: { taskId: "T-001", briefPath: "docs/work-items/FEAT-042.md" }</p>
+                    <p class="text-xs text-amber-700 mt-1 inline-flex items-center gap-1">
+                      <span class="material-icons" style="font-size: 14px;">pan_tool</span>
+                      Awaiting human signal →
+                    </p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Awaiting signal aside -->
+          <aside class="w-96 shrink-0">
+            <div class="bg-white rounded-lg shadow-sm p-6 sticky top-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="material-icons text-amber-500" style="font-size: 20px;">pan_tool</span>
+                <h3 class="font-display text-base font-semibold text-slate-900">Awaiting signal</h3>
+              </div>
+              <p class="text-xs text-slate-500 mb-5">Pre-filled from the latest dispatched human executor call.</p>
+
+              <form class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Task ID</label>
+                  <div class="inline-flex items-center gap-2 bg-slate-100 text-slate-700 font-mono text-sm rounded-lg px-3 py-1.5">
+                    T-001
+                    <span class="material-icons text-slate-400" style="font-size: 14px;">lock</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Commit SHA <span class="text-red-500">*</span></label>
+                  <input type="text" placeholder="abc1234"
+                    class="w-full font-mono text-sm rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none" />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">PR URL <span class="text-red-500">*</span></label>
+                  <input type="url" placeholder="https://github.com/org/repo/pull/42"
+                    class="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none" />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Diff <span class="text-slate-400 font-normal">(optional)</span></label>
+                  <textarea rows="3" placeholder="Paste unified diff…"
+                    class="w-full font-mono text-xs rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none resize-y"></textarea>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Implementation notes <span class="text-slate-400 font-normal">(optional)</span></label>
+                  <textarea rows="3" placeholder="What did you change and why?"
+                    class="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none resize-y"></textarea>
+                </div>
+
+                <div class="flex items-center gap-2 pt-1">
+                  <button type="button" class="flex-1 bg-sky-500 hover:bg-sky-600 active:translate-y-px text-white font-medium rounded-lg px-4 py-2 transition-all duration-200">
+                    Submit signal
+                  </button>
+                  <button type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg px-3 py-2">
+                    Reset
+                  </button>
+                </div>
+              </form>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================ STATE 2: Running ================ -->
+    <section>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4 text-center">
+        Running — no signal form
+      </h2>
+      <div class="bg-slate-50 rounded-lg border border-slate-200/70 p-6">
+        <div class="max-w-5xl mx-auto">
+          <div class="bg-white rounded-lg shadow-sm p-6 mb-5">
+            <a class="text-sm text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mb-3">
+              <span class="material-icons" style="font-size: 16px;">arrow_back</span> Runs
+            </a>
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-3 mb-1">
+                  <h2 class="font-display text-2xl font-semibold text-slate-900 truncate">Run <span class="font-mono text-base text-slate-500">d4f1c0e2-…-7b22</span></h2>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                    Running
+                  </span>
+                </div>
+                <p class="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+                  <span class="font-mono">lifecycle-agent@0.3.0</span>
+                  <span>·</span>
+                  <span>docs/work-items/FEAT-051.md</span>
+                  <span>·</span>
+                  <span>started 2026-05-09 10:14</span>
+                  <span>·</span>
+                  <span>node <span class="font-mono">generate_plan</span></span>
+                </p>
+              </div>
+              <button class="shrink-0 inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg px-3 py-1.5">
+                <span class="material-icons" style="font-size: 16px;">cancel</span>
+                Cancel run
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display text-base font-semibold text-slate-900">Trace</h3>
+              <span class="inline-flex items-center gap-1.5 text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                streaming
+              </span>
+            </div>
+
+            <ol class="space-y-3" aria-live="polite">
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-slate-500" style="font-size: 16px;">align_horizontal_left</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 4</span> · <span class="font-medium">load_work_item</span> <span class="text-emerald-600">completed</span></p>
+                    <span class="text-xs text-slate-400">10:14:11</span>
+                  </div>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-violet-600" style="font-size: 16px;">psychology</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 5</span> · <span class="font-medium">policy_call</span> <span class="text-slate-500">claude-sonnet-4-7</span></p>
+                    <span class="text-xs text-slate-400">10:14:18</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">in 2,012t · out 482t · 3,108ms</p>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-emerald-600" style="font-size: 16px;">play_circle</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 5</span> · <span class="font-medium">executor_call</span> <span class="font-mono">decompose_brief</span>
+                      <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 ml-1">local</span>
+                      <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 ml-1">completed</span>
+                    </p>
+                    <span class="text-xs text-slate-400">10:14:24</span>
+                  </div>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-sky-600" style="font-size: 16px;">bolt</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 6</span> · <span class="font-medium">effector_call</span> <span class="font-mono">read_repo_file</span></p>
+                    <span class="text-xs text-slate-400">10:14:29</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5 font-mono truncate">result: { bytes: 4128, sha: "f2…ab" }</p>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-slate-500" style="font-size: 16px;">align_horizontal_left</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 7</span> · <span class="font-medium">generate_plan</span> <span class="text-sky-600 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span> started</span></p>
+                    <span class="text-xs text-slate-400">10:14:36</span>
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================ STATE 3: Terminal — completed ================ -->
+    <section>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4 text-center">
+        Terminal — completed
+      </h2>
+      <div class="bg-slate-50 rounded-lg border border-slate-200/70 p-6">
+        <div class="max-w-5xl mx-auto">
+          <div class="bg-white rounded-lg shadow-sm p-6 mb-5">
+            <a class="text-sm text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mb-3">
+              <span class="material-icons" style="font-size: 16px;">arrow_back</span> Runs
+            </a>
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-3 mb-1">
+                  <h2 class="font-display text-2xl font-semibold text-slate-900 truncate">Run <span class="font-mono text-base text-slate-500">9c2eb84a-…-1d77</span></h2>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Completed</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-100">done_node</span>
+                </div>
+                <p class="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+                  <span class="font-mono">lifecycle-agent@0.3.0</span>
+                  <span>·</span>
+                  <span>docs/work-items/FEAT-039.md</span>
+                  <span>·</span>
+                  <span>started 2026-05-09 07:55</span>
+                  <span>·</span>
+                  <span class="text-emerald-700">completed 2026-05-09 11:42:18</span>
+                </p>
+              </div>
+              <!-- No Cancel button on terminal runs -->
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display text-base font-semibold text-slate-900">Trace</h3>
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                <span class="material-icons" style="font-size: 12px;">stop_circle</span>
+                stream closed
+              </span>
+            </div>
+
+            <ol class="space-y-3">
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-emerald-600" style="font-size: 16px;">play_circle</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 28</span> · <span class="font-medium">executor_call</span> <span class="font-mono">review_implementation</span>
+                      <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 ml-1">local</span>
+                      <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 ml-1">completed</span>
+                    </p>
+                    <span class="text-xs text-slate-400">11:41:50</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5 font-mono truncate">result: { approved: true, comments: 0 }</p>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-sky-600" style="font-size: 16px;">bolt</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 29</span> · <span class="font-medium">effector_call</span> <span class="font-mono">git_merge_pr</span></p>
+                    <span class="text-xs text-slate-400">11:42:02</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5 font-mono truncate">result: { mergeSha: "a18b7c2", state: "merged" }</p>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-violet-600" style="font-size: 16px;">psychology</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 30</span> · <span class="font-medium">policy_call</span> <span class="text-slate-500">claude-sonnet-4-7</span></p>
+                    <span class="text-xs text-slate-400">11:42:10</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">in 1,118t · out 96t · 1,402ms · tool <span class="font-mono">end_run</span></p>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5">
+                  <span class="material-icons text-emerald-600" style="font-size: 16px;">check_circle</span>
+                </span>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <p class="text-sm text-slate-700"><span class="font-mono text-xs text-slate-400">step 30</span> · <span class="font-medium">done</span> <span class="text-emerald-600">completed</span></p>
+                    <span class="text-xs text-slate-400">11:42:18</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">terminationReason: <span class="font-mono">done_node</span></p>
+                </div>
+              </li>
+            </ol>
+
+            <div class="mt-5 pt-4 border-t border-slate-200 text-sm text-slate-500 inline-flex items-center gap-2">
+              <span class="material-icons text-emerald-500" style="font-size: 18px;">check_circle</span>
+              Run completed successfully · 30 steps · within budget (200)
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================ STATE 4: Cancel-confirmation modal ================ -->
+    <section>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4 text-center">
+        Cancel confirmation modal
+      </h2>
+      <div class="bg-slate-50 rounded-lg border border-slate-200/70 p-6 relative overflow-hidden">
+
+        <!-- Faded background page -->
+        <div class="max-w-5xl mx-auto opacity-50 pointer-events-none">
+          <div class="bg-white rounded-lg shadow-sm p-6 mb-5">
+            <a class="text-sm text-sky-600 inline-flex items-center gap-1 mb-3">
+              <span class="material-icons" style="font-size: 16px;">arrow_back</span> Runs
+            </a>
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-3 mb-1">
+                  <h2 class="font-display text-2xl font-semibold text-slate-900">Run <span class="font-mono text-base text-slate-500">abc12345-…-9f31</span></h2>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Paused</span>
+                </div>
+                <p class="text-sm text-slate-500">lifecycle-agent@0.3.0 · docs/work-items/FEAT-042.md · started 2026-05-09 09:01</p>
+              </div>
+              <button class="shrink-0 inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg px-3 py-1.5">
+                <span class="material-icons" style="font-size: 16px;">cancel</span>
+                Cancel run
+              </button>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-6">
+            <h3 class="font-display text-base font-semibold text-slate-900 mb-4">Trace</h3>
+            <div class="space-y-3">
+              <div class="h-4 w-3/4 bg-slate-100 rounded"></div>
+              <div class="h-4 w-2/3 bg-slate-100 rounded"></div>
+              <div class="h-4 w-4/5 bg-slate-100 rounded"></div>
+              <div class="h-4 w-1/2 bg-slate-100 rounded"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+
+        <!-- Modal -->
+        <div class="absolute inset-0 flex items-center justify-center p-6">
+          <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 ring-1 ring-slate-200">
+            <div class="flex items-start gap-4">
+              <div class="shrink-0 w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                <span class="material-icons text-red-500" style="font-size: 22px;">warning_amber</span>
+              </div>
+              <div class="flex-1">
+                <h3 class="font-display text-lg font-semibold text-slate-900 mb-1">Cancel this run?</h3>
+                <p class="text-sm text-slate-600">
+                  The run will be marked <span class="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-xs">cancelled</span> and the orchestrator will stop dispatching tasks. This cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-end gap-2">
+              <button class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg px-4 py-2">
+                Keep running
+              </button>
+              <button class="bg-red-500 hover:bg-red-600 active:translate-y-px text-white text-sm font-medium rounded-lg px-4 py-2 ring-2 ring-red-300 ring-offset-2 transition-all duration-200">
+                Yes, cancel run
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+</body>
+</html>
