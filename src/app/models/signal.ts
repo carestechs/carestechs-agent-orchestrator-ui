@@ -1,5 +1,5 @@
 export type KnownSignalName = 'implementation-complete';
-// eslint-disable-next-line @typescript-eslint/ban-types -- preserves autocomplete on KnownSignalName while accepting future names
+// `(string & {})` preserves autocomplete on `KnownSignalName` while accepting future names.
 export type SignalName = KnownSignalName | (string & {});
 
 export interface SignalPayload {

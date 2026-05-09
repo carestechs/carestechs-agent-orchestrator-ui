@@ -11,7 +11,7 @@ export type KnownProblemCode =
   | 'upstream-unavailable'
   | 'upstream-error';
 
-// eslint-disable-next-line @typescript-eslint/ban-types -- preserves autocomplete on KnownProblemCode while accepting future codes
+// `(string & {})` preserves autocomplete on `KnownProblemCode` while accepting future codes.
 export type ProblemCode = KnownProblemCode | (string & {});
 
 export interface ProblemDetails {
