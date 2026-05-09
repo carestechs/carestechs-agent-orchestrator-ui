@@ -1,0 +1,85 @@
+{
+  "root": true,
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    ".angular/",
+    "coverage/",
+    "playwright-report/",
+    "test-results/",
+    "out-tsc/",
+    "mockups/"
+  ],
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "parser": "@typescript-eslint/parser",
+      "parserOptions": {
+        "project": ["tsconfig.app.json", "tsconfig.spec.json"],
+        "createDefaultProgram": true
+      },
+      "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@angular-eslint/recommended",
+        "plugin:@angular-eslint/template/process-inline-templates"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "error",
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "@angular-eslint/component-class-suffix": ["error", { "suffixes": ["Component"] }],
+        "@angular-eslint/directive-class-suffix": ["error", { "suffixes": ["Directive"] }],
+        "@angular-eslint/component-selector": [
+          "error",
+          { "type": "element", "prefix": "app", "style": "kebab-case" }
+        ],
+        "@angular-eslint/directive-selector": [
+          "error",
+          { "type": "attribute", "prefix": "app", "style": "camelCase" }
+        ],
+        "@angular-eslint/prefer-standalone-component": "error",
+        "@angular-eslint/no-empty-lifecycle-method": "error",
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Decorator[expression.callee.name='Component'] Property[key.name='styleUrls']",
+            "message": "Component CSS is forbidden — use Tailwind classes in the .html (CLAUDE.md > Tailwind only — no component CSS)."
+          },
+          {
+            "selector": "Decorator[expression.callee.name='Component'] Property[key.name='styles'][value.elements.length>0]",
+            "message": "Component inline styles are forbidden — use Tailwind classes in the .html. Set `styles: []`."
+          },
+          {
+            "selector": "Decorator[expression.callee.name='Component'] Property[key.name='template']",
+            "message": "Inline component templates are forbidden — use `templateUrl` (CLAUDE.md > Separate template files)."
+          },
+          {
+            "selector": "ExportDefaultDeclaration",
+            "message": "Default exports are not allowed; use named exports (CLAUDE.md > Named exports only)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/**/*.html"],
+      "parser": "@angular-eslint/template-parser",
+      "extends": ["plugin:@angular-eslint/template/recommended"],
+      "rules": {}
+    },
+    {
+      "files": ["bff/**/*.ts"],
+      "parser": "@typescript-eslint/parser",
+      "parserOptions": {
+        "project": ["bff/tsconfig.json"]
+      },
+      "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "error",
+        "no-console": ["error", { "allow": ["error"] }]
+      }
+    }
+  ]
+}
