@@ -29,12 +29,15 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
+    "@analogjs/vite-plugin-angular": "^2.5.0",
+    "@analogjs/vitest-angular": "^2.5.0",
     "@angular/build": "^20.0.0",
     "@angular/cli": "^20.0.0",
     "@angular/compiler-cli": "^20.0.0",
+    "@angular/platform-browser-dynamic": "^20.3.20",
+    "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0",
-    "@eslint/js": "^9.17.0",
     "angular-eslint": "^20.0.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
