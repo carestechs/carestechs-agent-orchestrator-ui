@@ -30,27 +30,46 @@ jobs:
       - name: Build SPA + BFF (postbuild scans for secret leaks)
         run: npm run build
 
-      - name: Start upstream mock
+      # Boot all three services and wait for readiness in a single step.
+      # GitHub Actions runs each step in a fresh shell, so backgrounded
+      # processes from a previous step are orphaned and may be reaped before
+      # the next step's `wait-on` ever sees them. Keeping boot + wait in one
+      # shell, with nohup + disown so the processes outlive any sub-shell,
+      # is the reliable pattern.
+      - name: Boot stack and wait for readiness
         run: |
-          npm run upstream-mock &
+          mkdir -p /tmp/lhci-logs
+          nohup npm run upstream-mock > /tmp/lhci-logs/upstream.log 2>&1 &
           echo $! > /tmp/upstream.pid
+          disown || true
 
-      - name: Start BFF
-        run: |
-          node --import tsx bff/src/server.ts &
+          nohup node --import tsx bff/src/server.ts > /tmp/lhci-logs/bff.log 2>&1 &
           echo $! > /tmp/bff.pid
+          disown || true
 
-      - name: Start static SPA
-        run: |
-          npm run lhci:serve &
+          nohup npm run lhci:serve > /tmp/lhci-logs/spa.log 2>&1 &
           echo $! > /tmp/spa.pid
+          disown || true
 
-      - name: Wait for services
-        run: |
-          npx --yes wait-on http://localhost:4200 http://localhost:4000/auth/me http://127.0.0.1:4100/v1/agents
+          npx --yes wait-on \
+            http-get://127.0.0.1:4100/v1/agents \
+            http-get://localhost:4000/auth/me \
+            http-get://localhost:4200 \
+            --timeout 60000 \
+            --interval 500
 
       - name: Run Lighthouse CI
         run: npm run lhci:run
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo '--- upstream-mock log ---'
+          tail -n 200 /tmp/lhci-logs/upstream.log || true
+          echo '--- BFF log ---'
+          tail -n 200 /tmp/lhci-logs/bff.log || true
+          echo '--- SPA static-server log ---'
+          tail -n 200 /tmp/lhci-logs/spa.log || true
 
       - uses: actions/upload-artifact@v4
         if: always()
