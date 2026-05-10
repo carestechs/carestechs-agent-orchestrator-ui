@@ -26,6 +26,11 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Capture /api/v1/* request bodies as raw Buffers so we can forward them
   // byte-identically (preserves AC-2: byte-identical pass-through).
+  // Fastify ships a default application/json parser that returns parsed
+  // objects; without removeAllContentTypeParsers() it would shadow this
+  // custom parser for application/json bodies and req.body would arrive as
+  // an object — coerced to "[object Object]" when forwarded via fetch.
+  app.removeAllContentTypeParsers();
   app.addContentTypeParser(
     '*',
     { parseAs: 'buffer' },
