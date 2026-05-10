@@ -5,6 +5,7 @@ export class ProblemDetailsError extends Error {
   readonly code: ProblemCode;
   readonly title: string;
   readonly detail?: string;
+  readonly errors?: Record<string, string[]>;
   readonly raw: ProblemDetails;
 
   constructor(problem: ProblemDetails) {
@@ -14,6 +15,7 @@ export class ProblemDetailsError extends Error {
     this.code = problem.code;
     this.title = problem.title;
     if (problem.detail !== undefined) this.detail = problem.detail;
+    if (problem.errors !== undefined) this.errors = problem.errors;
     this.raw = problem;
   }
 

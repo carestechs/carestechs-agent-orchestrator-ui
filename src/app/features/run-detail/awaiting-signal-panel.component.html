@@ -1,0 +1,113 @@
+@if (formVisible()) {
+  <div class="bg-white rounded-lg shadow-sm p-6">
+    <h2 class="font-[Poppins] text-slate-900 text-lg font-semibold">Awaiting signal</h2>
+    <p class="text-sm text-slate-500 mt-1">Submit the human-pause signal to advance this run.</p>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 mt-4">
+      <div>
+        <label for="task-id" class="block text-sm font-medium text-slate-700 mb-1.5">Task ID</label>
+        @if (taskIdMode() === 'single') {
+          <input
+            id="task-id"
+            type="text"
+            formControlName="taskId"
+            readonly
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 font-mono text-sm"
+          />
+        } @else {
+          <select
+            id="task-id"
+            formControlName="taskId"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+          >
+            @for (id of prefilledTaskIds(); track id) {
+              <option [value]="id">{{ id }}</option>
+            }
+          </select>
+        }
+        @if (taskIdError()) {
+          <p class="text-red-600 text-sm mt-1">{{ taskIdError() }}</p>
+        }
+        @if (fieldErrors()['taskId']; as errs) {
+          @for (msg of errs; track msg) {
+            <p class="text-red-600 text-sm mt-1">{{ msg }}</p>
+          }
+        }
+      </div>
+
+      <div>
+        <label for="commit-sha" class="block text-sm font-medium text-slate-700 mb-1.5">Commit SHA</label>
+        <input
+          id="commit-sha"
+          type="text"
+          formControlName="commitSha"
+          autocomplete="off"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+        />
+        @if (fieldErrors()['commitSha']; as errs) {
+          @for (msg of errs; track msg) {
+            <p class="text-red-600 text-sm mt-1">{{ msg }}</p>
+          }
+        }
+      </div>
+
+      <div>
+        <label for="pr-url" class="block text-sm font-medium text-slate-700 mb-1.5">PR URL</label>
+        <input
+          id="pr-url"
+          type="url"
+          formControlName="prUrl"
+          autocomplete="off"
+          placeholder="https://github.com/org/repo/pull/123"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+        />
+        @if (fieldErrors()['prUrl']; as errs) {
+          @for (msg of errs; track msg) {
+            <p class="text-red-600 text-sm mt-1">{{ msg }}</p>
+          }
+        }
+      </div>
+
+      <div>
+        <label for="diff" class="block text-sm font-medium text-slate-700 mb-1.5">Diff (optional)</label>
+        <textarea
+          id="diff"
+          formControlName="diff"
+          rows="6"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+        ></textarea>
+      </div>
+
+      <div>
+        <label for="impl-notes" class="block text-sm font-medium text-slate-700 mb-1.5">
+          Implementation notes (optional)
+        </label>
+        <textarea
+          id="impl-notes"
+          formControlName="implementationNotes"
+          rows="3"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+        ></textarea>
+      </div>
+
+      @if (fieldErrors()['_form']; as errs) {
+        @for (msg of errs; track msg) {
+          <p class="text-red-600 text-sm">{{ msg }}</p>
+        }
+      }
+
+      <button
+        type="submit"
+        [disabled]="submitting() || form.invalid"
+        class="w-full rounded-lg bg-sky-500 hover:bg-sky-600 active:translate-y-px text-white font-medium px-4 py-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+      >
+        @if (submitting()) {
+          <span aria-hidden="true" class="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+          <span>Submitting…</span>
+        } @else {
+          <span>Submit signal</span>
+        }
+      </button>
+    </form>
+  </div>
+}
