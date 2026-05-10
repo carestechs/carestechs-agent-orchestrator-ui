@@ -21,4 +21,5 @@ export interface ProblemDetails {
   detail?: string;
   instance?: string;
   code: ProblemCode;
+  errors?: Record<string, string[]>;
 }
