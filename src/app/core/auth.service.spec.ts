@@ -1,56 +1,72 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { firstValueFrom } from 'rxjs';
 import { provideRouter, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { authExpired, notifyAuthExpired } from './auth-events';
+import { isUnlocked } from './operator-gate';
+import { ProblemDetailsError } from './problem-details.error';
+import { environment } from '../../environments/environment';
 
 let auth: AuthService;
-let httpMock: HttpTestingController;
 let router: Router;
 
 beforeEach(() => {
-  TestBed.configureTestingModule({
-    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
-  });
+  sessionStorage.clear();
+  TestBed.configureTestingModule({ providers: [provideRouter([])] });
   router = TestBed.inject(Router);
   auth = TestBed.inject(AuthService);
-  httpMock = TestBed.inject(HttpTestingController);
 });
 
 afterEach(() => {
-  httpMock.verify();
+  sessionStorage.clear();
+  vi.restoreAllMocks();
 });
 
 describe('AuthService', () => {
-  it('updates the session signal on login', () => {
-    let result: unknown;
-    auth.login('pw').subscribe((s) => (result = s));
-    const req = httpMock.expectOne('/auth/login');
-    expect(req.request.body).toEqual({ passphrase: 'pw' });
-    req.flush({
-      data: { authenticated: true, expiresAt: '2026-05-09T12:00:00Z' },
-      meta: null,
-    });
-    expect(result).toEqual({ authenticated: true, expiresAt: '2026-05-09T12:00:00Z' });
+  it('login(passphrase) with the matching value unlocks and sets the session signal', async () => {
+    const result = await firstValueFrom(auth.login(environment.operatorPassphrase));
+    expect(result).toEqual({ authenticated: true });
     expect(auth.authenticated()).toBe(true);
+    expect(isUnlocked()).toBe(true);
   });
 
-  it('clears the session signal on logout', () => {
-    auth.login('pw').subscribe();
-    httpMock
-      .expectOne('/auth/login')
-      .flush({ data: { authenticated: true, expiresAt: '2026-05-09T12:00:00Z' }, meta: null });
-    expect(auth.authenticated()).toBe(true);
-
-    auth.logout().subscribe();
-    httpMock.expectOne('/auth/logout').flush(null, { status: 200, statusText: 'OK' });
+  it('login(passphrase) with a wrong value throws ProblemDetailsError(invalid-passphrase) and does not unlock', async () => {
+    let caught: unknown;
+    try {
+      await firstValueFrom(auth.login('wrong-value'));
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ProblemDetailsError);
+    expect((caught as ProblemDetailsError).code).toBe('invalid-passphrase');
+    expect((caught as ProblemDetailsError).status).toBe(401);
+    expect(isUnlocked()).toBe(false);
     expect(auth.authenticated()).toBe(false);
   });
 
-  it('redirects to /login?reason=expired when authExpired bumps mid-session', async () => {
+  it('logout locks the gate and clears the session signal', async () => {
+    await firstValueFrom(auth.login(environment.operatorPassphrase));
+    expect(auth.authenticated()).toBe(true);
+    await firstValueFrom(auth.logout());
+    expect(auth.authenticated()).toBe(false);
+    expect(isUnlocked()).toBe(false);
+  });
+
+  it('me() reflects current sessionStorage state and syncs the signal', async () => {
+    expect(auth.authenticated()).toBe(false);
+    sessionStorage.setItem('ao.operator.unlocked', 'true');
+    const session = await firstValueFrom(auth.me());
+    expect(session.authenticated).toBe(true);
+    expect(auth.authenticated()).toBe(true);
+  });
+
+  it('redirects to /login?reason=expired and clears the gate when authExpired bumps mid-session', async () => {
+    // Unlock first so the expiry is observable.
+    await firstValueFrom(auth.login(environment.operatorPassphrase));
+    expect(isUnlocked()).toBe(true);
+
     const navSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     Object.defineProperty(router, 'url', { get: () => '/runs', configurable: true });
 
@@ -60,6 +76,7 @@ describe('AuthService', () => {
 
     expect(navSpy).toHaveBeenCalledWith('/login?reason=expired', { replaceUrl: true });
     expect(auth.authenticated()).toBe(false);
+    expect(isUnlocked()).toBe(false);
   });
 
   it('does not redirect when already on /login', async () => {

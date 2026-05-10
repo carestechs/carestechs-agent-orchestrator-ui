@@ -9,22 +9,35 @@ interface CapturedRequest {
 }
 
 function installSecretCapture(page: Page): {
-  authHeaders: CapturedRequest[];
-  keyLeaks: CapturedRequest[];
+  // After FEAT-003: Authorization: Bearer <api-key> is expected on every
+  // orchestrator request. We assert the header IS present with the right
+  // value, AND that neither the key (off-channel) nor the passphrase value
+  // leaks elsewhere (URL or non-Authorization positions).
+  authedRequestCount: { value: number };
+  unexpectedKeyExposure: CapturedRequest[];
+  passphraseLeaks: CapturedRequest[];
 } {
-  const authHeaders: CapturedRequest[] = [];
-  const keyLeaks: CapturedRequest[] = [];
+  const authedRequestCount = { value: 0 };
+  const unexpectedKeyExposure: CapturedRequest[] = [];
+  const passphraseLeaks: CapturedRequest[] = [];
+  const expectedBearer = `Bearer ${E2E_API_KEY}`;
   page.on('request', (req) => {
     const auth = req.headers()['authorization'];
-    if (auth !== undefined) {
-      authHeaders.push({ method: req.method(), url: req.url() });
+    if (auth === expectedBearer) {
+      authedRequestCount.value += 1;
+    }
+    // The API key value must not appear in the URL (would mean someone
+    // mistakenly added it as a query param).
+    if (req.url().includes(E2E_API_KEY)) {
+      unexpectedKeyExposure.push({ method: req.method(), url: req.url() });
     }
     const body = req.postData();
-    if (req.url().includes(E2E_API_KEY) || (body && body.includes(E2E_API_KEY))) {
-      keyLeaks.push({ method: req.method(), url: req.url() });
+    // The operator passphrase must never leave the browser at all.
+    if (req.url().includes(E2E_PASSPHRASE) || (body && body.includes(E2E_PASSPHRASE))) {
+      passphraseLeaks.push({ method: req.method(), url: req.url() });
     }
   });
-  return { authHeaders, keyLeaks };
+  return { authedRequestCount, unexpectedKeyExposure, passphraseLeaks };
 }
 
 test.beforeEach(async ({ request }) => {
@@ -35,7 +48,7 @@ test.beforeEach(async ({ request }) => {
 
 test.describe('critical path', () => {
   test('login → list → detail → trace → signal → resubmit', async ({ page }) => {
-    const { authHeaders, keyLeaks } = installSecretCapture(page);
+    const { authedRequestCount, unexpectedKeyExposure, passphraseLeaks } = installSecretCapture(page);
 
     await page.goto('/login');
     await page.locator('[data-testid="login-passphrase"]').fill(E2E_PASSPHRASE);
@@ -72,9 +85,11 @@ test.describe('critical path', () => {
     const replayToast = page.locator('[data-testid="toast"][data-variant="success"]').last();
     await expect(replayToast).toContainText(/already received/i);
 
-    // Defense-in-depth: no Authorization header on any browser request, and the
-    // upstream API key value never appears in URLs or POST bodies.
-    expect(authHeaders, 'no Authorization header on any browser-initiated request').toEqual([]);
-    expect(keyLeaks, 'no upstream API key value in any browser request').toEqual([]);
+    // After FEAT-003: Authorization Bearer is the new contract. At least one
+    // orchestrator request must have carried it; the key must not leak via
+    // URL; the passphrase must not leak anywhere.
+    expect(authedRequestCount.value, 'expected Authorization: Bearer on orchestrator requests').toBeGreaterThan(0);
+    expect(unexpectedKeyExposure, 'API key must not appear in URLs').toEqual([]);
+    expect(passphraseLeaks, 'operator passphrase must never leave the browser').toEqual([]);
   });
 });

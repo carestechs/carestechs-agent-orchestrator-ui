@@ -156,6 +156,26 @@ export function createUpstreamMock(): UpstreamMockHandle {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const method = req.method ?? 'GET';
 
+    // After FEAT-003 T-030 the SPA calls this mock directly from localhost:4200.
+    // Echo the request Origin (or fall back to a wildcard) so preflights succeed
+    // for any same-machine test runner. Production orchestrators must do the
+    // equivalent; documented in docs/api-spec.md.
+    const origin = (req.headers['origin'] as string | undefined) ?? '*';
+    const corsHeaders: Record<string, string> = {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': 'authorization, content-type',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Expose-Headers': 'content-type',
+      'Vary': 'Origin',
+    };
+    for (const [k, v] of Object.entries(corsHeaders)) res.setHeader(k, v);
+
+    if (method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     // Test-only reset endpoint. Lets each Playwright spec restore the mock to
      // a clean run-paused state without restarting the whole stack.
     if (method === 'POST' && url.pathname === '/__test/reset') {

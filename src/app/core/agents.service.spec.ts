@@ -4,6 +4,9 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { AgentsService } from './agents.service';
+import { environment } from '../../environments/environment';
+
+const BASE = environment.orchestratorBaseUrl;
 
 let agents: AgentsService;
 let httpMock: HttpTestingController;
@@ -21,10 +24,10 @@ afterEach(() => {
 });
 
 describe('AgentsService.list', () => {
-  it('issues GET /api/v1/agents and decodes the Agent[] body', () => {
+  it('issues GET /v1/agents and decodes the Agent[] body', () => {
     let result: unknown;
     agents.list().subscribe((a) => (result = a));
-    const req = httpMock.expectOne('/api/v1/agents');
+    const req = httpMock.expectOne(`${BASE}/v1/agents`);
     expect(req.request.method).toBe('GET');
     req.flush({
       data: [

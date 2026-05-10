@@ -5,6 +5,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { SignalsService } from './signals.service';
 import { ProblemDetailsError } from './problem-details.error';
+import { environment } from '../../environments/environment';
+
+const BASE = environment.orchestratorBaseUrl;
 
 let signals: SignalsService;
 let httpMock: HttpTestingController;
@@ -40,9 +43,9 @@ const receipt = {
 };
 
 describe('SignalsService.submit', () => {
-  it('POSTs the SignalRequest body to /api/v1/runs/:id/signals', () => {
+  it('POSTs the SignalRequest body to /v1/runs/:id/signals', () => {
     signals.submit('r1', baseRequest).subscribe();
-    const req = httpMock.expectOne('/api/v1/runs/r1/signals');
+    const req = httpMock.expectOne(`${BASE}/v1/runs/r1/signals`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(baseRequest);
     req.flush({ data: receipt, meta: null });
@@ -51,7 +54,7 @@ describe('SignalsService.submit', () => {
   it('returns alreadyReceived: false on a fresh submit', () => {
     let result: unknown;
     signals.submit('r1', baseRequest).subscribe((r) => (result = r));
-    httpMock.expectOne('/api/v1/runs/r1/signals').flush({ data: receipt, meta: null });
+    httpMock.expectOne(`${BASE}/v1/runs/r1/signals`).flush({ data: receipt, meta: null });
     expect(result).toEqual({ data: receipt, alreadyReceived: false });
   });
 
@@ -59,7 +62,7 @@ describe('SignalsService.submit', () => {
     let result: unknown;
     signals.submit('r1', baseRequest).subscribe((r) => (result = r));
     httpMock
-      .expectOne('/api/v1/runs/r1/signals')
+      .expectOne(`${BASE}/v1/runs/r1/signals`)
       .flush({ data: receipt, meta: { alreadyReceived: true } });
     expect(result).toEqual({ data: receipt, alreadyReceived: true });
   });
@@ -67,7 +70,7 @@ describe('SignalsService.submit', () => {
   it('propagates 409 run-already-terminal as ProblemDetailsError', () => {
     let caught: unknown;
     signals.submit('r1', baseRequest).subscribe({ error: (e) => (caught = e) });
-    httpMock.expectOne('/api/v1/runs/r1/signals').flush(
+    httpMock.expectOne(`${BASE}/v1/runs/r1/signals`).flush(
       { type: 'about:blank', title: 'Run already terminal', status: 409, code: 'run-already-terminal' },
       { status: 409, statusText: 'Conflict', headers: { 'content-type': 'application/problem+json' } },
     );

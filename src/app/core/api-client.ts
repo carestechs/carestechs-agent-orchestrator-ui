@@ -1,9 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { catchError, map, throwError } from 'rxjs';
 import { ProblemDetailsError } from './problem-details.error';
 import { notifyAuthExpired } from './auth-events';
+import { environment } from '../../environments/environment';
 import type { Envelope, EnvelopeMeta } from '../models';
 
 export type Params = Record<string, string | number | boolean | undefined | null>;
@@ -20,15 +21,19 @@ export class ApiClient {
   private readonly http = inject(HttpClient);
 
   get<T>(path: string, params?: Params): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.get<Envelope<T>>(path, this.opts(params)), path);
+    return this.send<T>(this.http.get<Envelope<T>>(this.url(path), this.opts(params)), path);
   }
 
   post<T>(path: string, body: unknown): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.post<Envelope<T>>(path, body, this.opts()), path);
+    return this.send<T>(this.http.post<Envelope<T>>(this.url(path), body, this.opts()), path);
   }
 
   delete<T>(path: string): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.delete<Envelope<T>>(path, this.opts()), path);
+    return this.send<T>(this.http.delete<Envelope<T>>(this.url(path), this.opts()), path);
+  }
+
+  private url(path: string): string {
+    return `${environment.orchestratorBaseUrl}${path}`;
   }
 
   private send<T>(source: Observable<Envelope<T>>, path: string): Observable<UnwrappedEnvelope<T>> {
@@ -39,16 +44,21 @@ export class ApiClient {
   }
 
   private opts(params?: Params): {
-    withCredentials: true;
+    headers: HttpHeaders;
     params?: HttpParams;
   } {
-    if (!params) return { withCredentials: true };
+    // After FEAT-003: Authorization is attached by the SPA itself.
+    // No withCredentials — there is no cookie session anymore.
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${environment.orchestratorApiKey}`,
+    });
+    if (!params) return { headers };
     let httpParams = new HttpParams();
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined || value === null) continue;
       httpParams = httpParams.set(key, String(value));
     }
-    return { withCredentials: true, params: httpParams };
+    return { headers, params: httpParams };
   }
 
   private toProblem(err: unknown, path: string): ProblemDetailsError {
@@ -69,13 +79,10 @@ export class ApiClient {
       problem = ProblemDetailsError.fromUnknown(err.status, err.error);
     }
 
-    if (problem.status === 401 && !this.isAuthProbe(path)) {
+    if (problem.status === 401) {
+      // After FEAT-003 the only 401 source is the orchestrator (rotated key).
       notifyAuthExpired();
     }
     return problem;
-  }
-
-  private isAuthProbe(path: string): boolean {
-    return path === '/auth/me' || path === '/auth/login';
   }
 }

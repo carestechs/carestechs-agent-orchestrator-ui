@@ -36,9 +36,7 @@ jobs:
           };
           EOF
           cp src/environments/environment.ts src/environments/environment.prod.ts
-      - name: Build (postbuild also scans dist for secret leaks)
-        env:
-          ORCHESTRATOR_API_KEY: test-key-do-not-leak
+      - name: Build (postbuild also scans dist for forbidden values)
         run: npm run build
 
   e2e:

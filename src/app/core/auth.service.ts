@@ -1,14 +1,15 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import type { Observable } from 'rxjs';
-import { map, tap } from 'rxjs';
-import { ApiClient } from './api-client';
+import { Observable, of, throwError } from 'rxjs';
+import { tap } from 'rxjs';
 import { authExpired } from './auth-events';
+import { isUnlocked, lock, unlock } from './operator-gate';
+import { ProblemDetailsError } from './problem-details.error';
+import { environment } from '../../environments/environment';
 import type { OperatorSession } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly api = inject(ApiClient);
   private readonly router = inject(Router);
 
   private readonly _session = signal<OperatorSession | null>(null);
@@ -26,30 +27,42 @@ export class AuthService {
     });
   }
 
+  // Reads the current gate state. No network. Kept as Observable<...> so
+  // callers (authGuard, etc.) don't have to change shape during the migration.
   me(): Observable<OperatorSession> {
-    return this.api.get<OperatorSession>('/auth/me').pipe(
-      map(({ data }) => data),
+    return of({ authenticated: isUnlocked() } as OperatorSession).pipe(
       tap((s) => this._session.set(s)),
     );
   }
 
   login(passphrase: string): Observable<OperatorSession> {
-    return this.api.post<OperatorSession>('/auth/login', { passphrase }).pipe(
-      map(({ data }) => data),
-      tap((s) => this._session.set(s)),
+    if (passphrase === environment.operatorPassphrase) {
+      unlock();
+      const session: OperatorSession = { authenticated: true };
+      this._session.set(session);
+      return of(session);
+    }
+    return throwError(
+      () =>
+        new ProblemDetailsError({
+          type: 'about:blank',
+          title: 'Incorrect passphrase.',
+          status: 401,
+          code: 'invalid-passphrase',
+        }),
     );
   }
 
   logout(): Observable<void> {
-    return this.api.post<void>('/auth/logout', {}).pipe(
-      map(() => undefined),
-      tap(() => this._session.set({ authenticated: false })),
-    );
+    lock();
+    this._session.set({ authenticated: false });
+    return of(undefined);
   }
 
   private handleExpiry(): void {
     const url = this.router.url;
     if (url.startsWith('/login')) return;
+    lock();
     this._session.set({ authenticated: false });
     void this.router.navigateByUrl('/login?reason=expired', { replaceUrl: true });
   }
