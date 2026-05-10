@@ -7,8 +7,13 @@
 //   GET  /v1/runs?status=&page=&pageSize=
 //   GET  /v1/runs/:id
 //   GET  /v1/runs/:id/trace?follow=true
-//   POST /v1/runs/:id/signals/dispatch
+//   POST /v1/runs/:id/signals
 //   POST /v1/runs/:id/cancel
+//   POST /v1/runs                          (start a run; new started runs
+//                                          live alongside the seeded one)
+//   GET  /v1/runs/run-e2e-start-N          (started-run detail)
+//   GET  /v1/runs/run-e2e-start-N/trace    (started-run NDJSON)
+//   POST /__test/reset                     (clear seeded + started state)
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 
@@ -16,11 +21,25 @@ export const SEEDED_RUN_ID = 'run-e2e-001';
 export const SEEDED_TASK_ID = 'task-001';
 export const SEEDED_AGENT_REF = 'demo-agent@1.0.0';
 
+interface StartedRun {
+  id: string;
+  agentRef: string;
+  status: 'running';
+  intake: Record<string, unknown>;
+  startedAt: string;
+  // Trace clients listening for this specific run's NDJSON stream.
+  traceClients: Set<ServerResponse>;
+  // Whether the canned trace sequence has been kicked off for this run.
+  traceSeeded: boolean;
+}
+
 interface MockState {
   runStatus: 'paused' | 'cancelled' | 'completed';
   signalsByKey: Set<string>;
   openTraceClients: Set<ServerResponse>;
   emittedRecordIds: Set<string>;
+  startedRuns: Map<string, StartedRun>;
+  startedRunCounter: number;
 }
 
 interface UpstreamMockHandle {
@@ -101,6 +120,30 @@ function freshState(): MockState {
     signalsByKey: new Set<string>(),
     openTraceClients: new Set<ServerResponse>(),
     emittedRecordIds: new Set<string>(),
+    startedRuns: new Map<string, StartedRun>(),
+    startedRunCounter: 0,
+  };
+}
+
+function startedRunSummary(run: StartedRun): Record<string, unknown> {
+  return {
+    id: run.id,
+    agentRef: run.agentRef,
+    status: run.status,
+    intake: run.intake,
+    startedAt: run.startedAt,
+    endedAt: null,
+    lastStepNumber: null,
+    terminationReason: null,
+  };
+}
+
+function startedRunDetail(run: StartedRun): Record<string, unknown> {
+  return {
+    ...startedRunSummary(run),
+    traceUri: `/v1/runs/${run.id}/trace`,
+    budget: { maxSteps: 100 },
+    currentNode: 'plan',
   };
 }
 
@@ -118,6 +161,11 @@ export function createUpstreamMock(): UpstreamMockHandle {
     if (method === 'POST' && url.pathname === '/__test/reset') {
       for (const client of state.openTraceClients) {
         try { client.end(); } catch { /* ignore */ }
+      }
+      for (const run of state.startedRuns.values()) {
+        for (const client of run.traceClients) {
+          try { client.end(); } catch { /* ignore */ }
+        }
       }
       state = freshState();
       res.writeHead(204);
@@ -246,6 +294,102 @@ export function createUpstreamMock(): UpstreamMockHandle {
       return;
     }
 
+    // POST /v1/runs — start-run flow. Generates a deterministic id, persists
+    // a StartedRun, and seeds a small canned trace so the SPA's detail screen
+    // observes ≥1 record within ~50ms of opening the stream.
+    if (method === 'POST' && url.pathname === '/v1/runs') {
+      const raw = await readBody(req);
+      let body: { agentRef?: string; intake?: Record<string, unknown>; budget?: { maxSteps?: number } } = {};
+      try { body = raw ? JSON.parse(raw) : {}; } catch { /* fall through */ }
+      if (!body.agentRef || typeof body.agentRef !== 'string') {
+        problemJson(res, 400, 'invalid-intake', 'agentRef is required');
+        return;
+      }
+      state.startedRunCounter += 1;
+      const id = `run-e2e-start-${state.startedRunCounter}`;
+      const run: StartedRun = {
+        id,
+        agentRef: body.agentRef,
+        status: 'running',
+        intake: body.intake ?? {},
+        startedAt: nowIso(),
+        traceClients: new Set<ServerResponse>(),
+        traceSeeded: false,
+      };
+      state.startedRuns.set(id, run);
+      res.writeHead(202, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(envelope(startedRunSummary(run)));
+      return;
+    }
+
+    // Started runs: GET detail.
+    {
+      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)$/);
+      if (method === 'GET' && m) {
+        const run = state.startedRuns.get(m[1]!);
+        if (!run) {
+          problemJson(res, 404, 'run-not-found', 'Run not found');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(envelope(startedRunDetail(run)));
+        return;
+      }
+    }
+
+    // Started runs: NDJSON trace.
+    {
+      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)\/trace$/);
+      if (method === 'GET' && m) {
+        const run = state.startedRuns.get(m[1]!);
+        if (!run) {
+          problemJson(res, 404, 'run-not-found', 'Run not found');
+          return;
+        }
+        res.writeHead(200, {
+          'content-type': 'application/x-ndjson',
+          'cache-control': 'no-store, no-transform',
+          'x-accel-buffering': 'no',
+        });
+        res.flushHeaders?.();
+        run.traceClients.add(res);
+
+        const timers: NodeJS.Timeout[] = [];
+        if (!run.traceSeeded) {
+          run.traceSeeded = true;
+          const seq: Array<[number, Record<string, unknown>]> = [
+            [
+              30,
+              {
+                kind: 'step',
+                recordId: `rec-${run.id}-step-1`,
+                runId: run.id,
+                stepNumber: 1,
+                occurredAt: nowIso(),
+                nodeName: 'plan',
+                state: 'started',
+              },
+            ],
+          ];
+          for (const [delay, record] of seq) {
+            const t = setTimeout(() => {
+              const line = JSON.stringify(record) + '\n';
+              for (const c of run.traceClients) {
+                try { c.write(line); } catch { /* skip */ }
+              }
+            }, delay);
+            timers.push(t);
+          }
+        }
+
+        req.on('close', () => {
+          run.traceClients.delete(res);
+          for (const t of timers) clearTimeout(t);
+        });
+        return;
+      }
+    }
+
     res.writeHead(404, { 'content-type': 'application/problem+json; charset=utf-8' });
     res.end(JSON.stringify({ type: 'about:blank', title: 'Not found', status: 404, code: 'not-found' }));
   };
@@ -285,6 +429,12 @@ export function createUpstreamMock(): UpstreamMockHandle {
         try { client.end(); } catch { /* ignore */ }
       }
       state.openTraceClients.clear();
+      for (const run of state.startedRuns.values()) {
+        for (const client of run.traceClients) {
+          try { client.end(); } catch { /* ignore */ }
+        }
+      }
+      state.startedRuns.clear();
       const s = server;
       server = null;
       await new Promise<void>((resolve) => s.close(() => resolve()));
@@ -293,6 +443,11 @@ export function createUpstreamMock(): UpstreamMockHandle {
       // Close any open trace responses, then start fresh.
       for (const client of state.openTraceClients) {
         try { client.end(); } catch { /* ignore */ }
+      }
+      for (const run of state.startedRuns.values()) {
+        for (const client of run.traceClients) {
+          try { client.end(); } catch { /* ignore */ }
+        }
       }
       state = freshState();
     },
