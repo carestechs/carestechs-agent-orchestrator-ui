@@ -140,3 +140,4 @@ No external services beyond the orchestrator. No analytics, no telemetry to thir
 | Date | Change |
 |------|--------|
 | 2026-05-09 | Initial architecture from orchestrator-ui-starter.md, Angular ADRs, and modern-minimal profile. |
+| 2026-05-09 | FEAT-001 audit — "API key never reaches browser" property is now mechanically enforced by `scripts/check-no-secrets-in-bundle.sh` (run from `npm run build` `postbuild`) and a Playwright assertion in `e2e/critical-path.spec.ts` that no browser-initiated request carries an `Authorization` header. |

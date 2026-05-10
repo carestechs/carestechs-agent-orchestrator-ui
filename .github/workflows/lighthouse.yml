@@ -1,0 +1,66 @@
+name: Lighthouse a11y
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ORCHESTRATOR_API_KEY: test-key-do-not-leak
+      ORCHESTRATOR_OPERATOR_PASSPHRASE: e2e-passphrase
+      ORCHESTRATOR_BASE_URL: http://127.0.0.1:4100
+      SESSION_SECRET: ci-session-secret
+      NODE_ENV: test
+      E2E_PASSPHRASE: e2e-passphrase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Build SPA + BFF (postbuild scans for secret leaks)
+        run: npm run build
+
+      - name: Start upstream mock
+        run: |
+          npm run upstream-mock &
+          echo $! > /tmp/upstream.pid
+
+      - name: Start BFF
+        run: |
+          node --import tsx bff/src/server.ts &
+          echo $! > /tmp/bff.pid
+
+      - name: Start static SPA
+        run: |
+          npm run lhci:serve &
+          echo $! > /tmp/spa.pid
+
+      - name: Wait for services
+        run: |
+          npx --yes wait-on http://localhost:4200 http://localhost:4000/auth/me http://127.0.0.1:4100/v1/agents
+
+      - name: Run Lighthouse CI
+        run: npm run lhci:run
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouseci-report
+          path: ./.lighthouseci
+
+      - name: Stop background services
+        if: always()
+        run: |
+          for f in /tmp/upstream.pid /tmp/bff.pid /tmp/spa.pid; do
+            if [ -f "$f" ]; then kill "$(cat "$f")" 2>/dev/null || true; fi
+          done

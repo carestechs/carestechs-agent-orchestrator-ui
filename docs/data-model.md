@@ -274,3 +274,4 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 | Date | Change |
 |------|--------|
 | 2026-05-09 | Initial data model derived from `orchestrator-ui-starter.md` §3 endpoints and signal schema. |
+| 2026-05-09 | FEAT-001 audit — added optional `ProblemDetails.errors: Record<string, string[]>` for 422 `invalid-signal-payload` per-field messages (RFC 7807 extension member). Module-ownership table now reflects flat `src/app/models/<name>.ts` layout (no `.model.ts` suffix). |

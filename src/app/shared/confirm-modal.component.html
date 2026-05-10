@@ -12,6 +12,7 @@
     <!-- Inner panel only stops backdrop clicks from bubbling. Keyboard interaction
          is handled by the focus-trapped buttons; the outer dialog owns Esc/Tab. -->
     <div
+      data-testid="confirm-modal"
       class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6"
       (click)="$event.stopPropagation()"
       (keydown)="$event.stopPropagation()"
@@ -29,6 +30,7 @@
         >{{ s.opts.cancelLabel }}</button>
         <button
           #confirmBtn
+          data-testid="confirm-modal-confirm"
           type="button"
           class="rounded-lg px-4 py-2 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           [class.bg-red-500]="s.opts.variant === 'danger'"

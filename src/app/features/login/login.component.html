@@ -23,6 +23,7 @@
           </label>
           <input
             id="passphrase"
+            data-testid="login-passphrase"
             type="password"
             name="passphrase"
             autocomplete="current-password"
@@ -42,6 +43,7 @@
 
         <button
           type="submit"
+          data-testid="login-submit"
           [disabled]="submitting() || !passphrase()"
           class="w-full bg-sky-500 hover:bg-sky-600 active:translate-y-px text-white font-medium rounded-lg px-4 py-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
         >
