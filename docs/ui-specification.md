@@ -98,16 +98,17 @@ All non-public routes lazy-load via `loadComponent`.
 
 ## Screen: Login
 
-**Purpose:** Operator submits the shared passphrase to obtain a session cookie.
+**Purpose:** Operator types the configured passphrase to unlock the SPA. After FEAT-003 this is **not a network call** — the form compares against `environment.operatorPassphrase` and sets a `sessionStorage` flag (`ao.operator.unlocked`). The orchestrator never sees the passphrase. See `docs/ARCHITECTURE.md` § "Interim security posture".
 
 **Layout:** Centered card, `max-w-md`, vertically centered viewport.
 
-**Components:** App logo / title, passphrase input (`type="password"`), Sign in button (primary), inline error on `401`.
+**Components:** App logo / title, passphrase input (`type="password"`), Sign in button (primary), inline error on mismatch.
 
 **States:**
 - Default
-- Submitting (button shows spinner, disabled)
+- Submitting (briefly disabled while the synchronous compare runs; effectively instantaneous)
 - Error (`code: invalid-passphrase` → "Incorrect passphrase.")
+- Expired banner shown when arriving via `?reason=expired` (a 401 from the orchestrator earlier in the session — typically a rotated/revoked API key).
 
 ---
 
@@ -131,7 +132,7 @@ All non-public routes lazy-load via `loadComponent`.
 
 **Components:**
 - `app-status-filter` — segmented control: All / Running / Paused / Completed / Failed / Cancelled. Default Paused.
-- `app-agent-filter` — dropdown populated from `GET /api/v1/agents`.
+- `app-agent-filter` — dropdown populated from `GET /v1/agents`.
 - `app-run-card` — clickable card per run. Shows: status badge, intake summary (truncated `featureBriefPath`), agentRef as caption, startedAt relative time, `currentNode` if present.
 - `app-pagination` — offset pagination control.
 
@@ -195,7 +196,7 @@ On `<lg`: stacked single-column; signal panel collapses above the trace.
 | Diff | no | text |
 | Implementation Notes | no | text |
 
-Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and clear `commitSha`/`prUrl`/`diff`/`notes`. On `409`, refresh the run. On `404` (`task-not-in-run-memory`), highlight Task ID with the inline error and re-pick from the awaiting dispatch.
+Submit posts to `/v1/runs/:id/signals`. On `202`, show success toast and clear `commitSha`/`prUrl`/`diff`/`notes`. On `409`, refresh the run. On `404` (`task-not-in-run-memory`), highlight Task ID with the inline error and re-pick from the awaiting dispatch.
 
 ---
 
@@ -204,7 +205,7 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 **Purpose:** Kick off a new run.
 
 **Components:**
-- Agent dropdown (from `GET /api/v1/agents`). Empty state with refresh button when zero agents are registered.
+- Agent dropdown (from `GET /v1/agents`). Empty state with refresh button when zero agents are registered.
 - Intake JSON editor (textarea, monospace 12 rows). Synchronous validator gates submit; inline parse error displays after a 200ms debounce. **Format** button pretty-prints valid input (no-op on invalid).
 - Optional `maxSteps` numeric input — positive integer, blank = omit `budget` from the request (orchestrator default applies; the SPA does not send `budget: { maxSteps: null }`).
 - Submit (`Start run`) and Cancel. Cancel uses `Location.back()` when there is a real history entry, else falls back to `/runs`.
@@ -244,8 +245,11 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 
 ## Behavior: Auth Guard
 
-- `core/auth.guard.ts` calls `GET /auth/me` once on app bootstrap. If unauthenticated, redirect to `/login` preserving `returnUrl`.
-- Any `401` from `/api/v1/*` triggers session expiry: clear local state, redirect to `/login?reason=expired`.
+- `core/auth.guard.ts` synchronously reads `sessionStorage.getItem('ao.operator.unlocked') === 'true'`. No network call on guard evaluation; no bootstrap probe.
+- If the flag is set, the route resolves immediately.
+- If unset, the guard returns a `UrlTree` pointing at `/login`, preserving the original target as `?redirect=<path>` (sanitized to same-origin via `safe-redirect.ts`).
+- Any `401` from orchestrator `/v1/*` calls (typically a rotated or revoked API key) triggers the auth-expiry channel — `core/auth-events.ts` bumps a signal counter, `AuthService` clears the `sessionStorage` flag and navigates to `/login?reason=expired`.
+- The gate is per-tab; closing the tab clears `sessionStorage` and the operator is re-prompted on next open.
 
 ---
 
@@ -256,3 +260,4 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 | 2026-05-09 | Initial UI spec — modern-minimal tokens, three feature screens (login, runs list, run detail), start-run, plus cross-cutting components. |
 | 2026-05-09 | FEAT-001 audit — login/runs-list/run-detail/awaiting-signal-panel shipped. Auth-guard contract: redirect param is `?redirect=<path>` (sanitized to same-origin) on entry, `?reason=expired` on session loss; the v1 implementation uses `redirect`, not `returnUrl`. |
 | 2026-05-10 | FEAT-002 — Run Start built. Documents agent picker empty-state, debounced JSON validator, format button, scoped error mapping (intake / agent / page), `Location.back()` cancel fallback, and the now-active "Start a run" CTAs on `/runs`. |
+| 2026-05-10 | FEAT-003 — Login screen and Auth Guard sections rewritten for the SPA-side passphrase gate. Login no longer makes any network call; the guard checks a `sessionStorage` flag synchronously. 401 from `/v1/*` (typically a rotated orchestrator key) still drives the expired banner. |

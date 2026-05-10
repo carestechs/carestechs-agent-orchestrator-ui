@@ -2,7 +2,9 @@
 
 ## System Summary
 
-A single-page Angular 17+ application backed by a thin Node.js BFF (Backend-for-Frontend) proxy. The SPA is the operator console for `carestechs-agent-orchestrator`; the BFF holds the orchestrator API key, terminates the operator session, and forwards requests upstream — including a streaming pass-through for the NDJSON trace endpoint.
+A single-page Angular 17+ application that is the operator console for `carestechs-agent-orchestrator`. The SPA calls the orchestrator directly over HTTP/JSON and NDJSON; there is no backend tier owned by this repo.
+
+This is an **interim architecture**. The orchestrator authenticates with a single static API key bundled into the SPA, which is only acceptable because the orchestrator deployment is not publicly reachable (see § "Interim security posture"). Real per-operator authentication is deferred to FEAT-004.
 
 ### Key Architectural Decisions
 
@@ -14,84 +16,72 @@ A single-page Angular 17+ application backed by a thin Node.js BFF (Backend-for-
 | Reactive state | Angular Signals for component state, RxJS only for HTTP and complex async | ADR `angular/signals-state.md`. Simpler mental model, fewer subscription leaks. |
 | TypeScript | Strict mode, no `any` | ADR `typescript/strict-typescript.md`. Catches errors at the boundary. |
 | Module exports | Named exports only (default exports only when Angular `loadComponent` requires them) | ADR `typescript/named-exports.md`. |
-| Auth secrecy | API key never in browser; held by BFF | Orchestrator is single-key bearer auth; the operator gets a session cookie from the BFF instead. |
-| CORS | None upstream; BFF proxies all calls | Orchestrator does not configure CORS. |
+| Auth (interim) | API key in the SPA bundle; SPA gates with a sessionStorage passphrase. Network position is the real gate. | See § "Interim security posture". Real auth is FEAT-004. |
+| CORS | Orchestrator deployment allows the SPA's origin and the `authorization` request header | Required by the direct-call topology after FEAT-003. |
 | Trace transport | NDJSON over HTTP, streamed via `fetch` + `ReadableStream` | Matches the orchestrator's plain-NDJSON trace endpoint. No WebSocket / SSE on either side. |
-| API envelope | Pass through orchestrator camelCase + `{ data, meta }` envelope unchanged | UI matches at the boundary. ADR `api/rest-envelope.md`. |
-| Error format | RFC 7807 `application/problem+json` from orchestrator, surfaced verbatim by BFF | Stable `code` field is what the UI keys on. |
+| API envelope | Orchestrator camelCase + `{ data, meta }` envelope, parsed unchanged | UI matches at the boundary. ADR `api/rest-envelope.md`. |
+| Error format | RFC 7807 `application/problem+json` from orchestrator | Stable `code` field is what the UI keys on. |
 | Pagination | Offset-based (`page`, `pageSize`) | Matches orchestrator. ADR `api/offset-pagination.md`. |
-| Testing | Vitest (unit, both processes), Playwright (E2E smokes) | Co-located unit tests; ADR `typescript/vitest-colocated.md`. |
+| Testing | Vitest (unit), Playwright (E2E smokes) | Co-located unit tests; ADR `typescript/vitest-colocated.md`. |
 | Design system | `modern-minimal` profile from `carestechs-ui-design` | Operator console prefers calm, content-first density. Sky `#0EA5E9` primary, Poppins/Inter typography, elevated cards. |
 
 ## Technology Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **Frontend** | Angular 17+ (standalone components, signals, RxJS only where needed), TypeScript strict, Tailwind CSS | Operator UI |
-| **BFF** | Node 20+, TypeScript strict, Fastify (or Express), `undici`/`fetch` for upstream calls, `cookie-session` (or equivalent) | Auth termination, API key isolation, NDJSON pass-through |
-| **Auth (BFF ↔ browser)** | Session cookie (`httpOnly`, `sameSite=lax`, `secure` in prod). Login form posts a shared operator passphrase, BFF issues session. | Keeps the orchestrator API key off the wire to the browser. |
-| **Auth (BFF ↔ orchestrator)** | `Authorization: Bearer ${ORCHESTRATOR_API_KEY}` from env | ADR `api/jwt-bearer-auth.md` style — single static bearer key, as the orchestrator currently uses. |
-| **Build** | Angular CLI (`ng build`) for SPA, `tsc` for BFF | |
-| **Test** | Vitest (unit), Playwright (smoke E2E) | |
-| **Hosting** | Container (Docker) with two processes or two containers — `nginx` serving SPA static + Node BFF behind it | |
+| **Frontend** | Angular 17+ (standalone components, signals, RxJS where needed), TypeScript strict, Tailwind CSS | Operator UI; single deployable. |
+| **Auth (SPA gate)** | `sessionStorage` flag set after the operator types the configured passphrase. No backend. | Keeps casual tab-takeover from being a free action. Not a real authentication boundary. |
+| **Auth (SPA → orchestrator)** | `Authorization: Bearer ${orchestratorApiKey}` attached by `ApiClient` and `TraceStreamService` from `environment.*.ts`. | Single static bearer key; orchestrator's current scheme. |
+| **Build** | Angular CLI (`ng build`). `environment.prod.ts` is materialized at deploy time from CI secrets. | |
+| **Test** | Vitest (unit), Playwright (smoke E2E) using an in-process orchestrator mock. | |
+| **Hosting** | Static SPA bundle served by any CDN or static-file server. The orchestrator host must be reachable from operators' browsers and must set CORS allow-headers for the SPA's origin. | |
 
-No database. The UI is stateless beyond the operator session cookie.
+No database. The SPA is stateless beyond a per-tab `sessionStorage` gate flag.
 
 ## Component Architecture
 
 ```
-┌────────────────────────┐    cookie session    ┌──────────────────┐    Bearer API key    ┌────────────────────────┐
-│   Angular SPA          │ ───────────────────▶ │   BFF Proxy      │ ───────────────────▶ │   Orchestrator         │
-│   (browser)            │                      │   (Node 20+)     │                      │   (HTTP API + NDJSON)  │
-│                        │ ◀─ JSON / NDJSON ─── │                  │ ◀─ JSON / NDJSON ─── │                        │
-└────────────────────────┘                      └──────────────────┘                      └────────────────────────┘
-        │                                                │
-        │ static assets                                  │ env: ORCHESTRATOR_BASE_URL,
-        ▼                                                │      ORCHESTRATOR_API_KEY,
-  ┌────────────┐                                         │      SESSION_SECRET,
-  │  nginx /   │                                         │      OPERATOR_PASSPHRASE
-  │  ng build  │                                         │
-  └────────────┘
+┌────────────────────────┐    Bearer API key    ┌──────────────────────────┐
+│   Angular SPA          │ ───────────────────▶ │   Orchestrator           │
+│   (browser)            │                      │   (HTTP API + NDJSON)    │
+│                        │ ◀─ JSON / NDJSON ─── │                          │
+└────────────────────────┘                      └──────────────────────────┘
+        │
+        │ build-time env: orchestratorBaseUrl, orchestratorApiKey, operatorPassphrase
+        ▼
+  ┌────────────────────┐
+  │ static SPA bundle  │
+  └────────────────────┘
 ```
 
 ### Component Descriptions
 
 **Angular SPA (`src/`)**
 - **Purpose:** Render the operator console — runs list, run detail with live trace, signal form, cancel, start-run.
-- **Responsibilities:** Routing, form state, signal-based view models, NDJSON consumption, Tailwind styling, error toasts, session lifecycle (login/logout).
-- **Key Dependencies:** Angular 17+, Tailwind, the BFF (only). Never calls the orchestrator directly.
+- **Responsibilities:** Routing, form state, signal-based view models, NDJSON consumption, Tailwind styling, error toasts, operator gate (SPA-side), Authorization header attach on every request.
 - **Internal layout:**
-  - `app/core/` — singleton services (`HttpClient` wrapper, `AuthService`, `ConfigService`, `TraceStreamService`).
+  - `app/core/` — singleton services: `ApiClient` (Bearer + base URL from env), `RunsService`/`AgentsService`/`SignalsService`, `TraceStreamService`, `AuthService` (sessionStorage gate), `operator-gate.ts` helpers, `auth-events.ts` (401 → expiry channel).
   - `app/features/` — one folder per route: `runs-list`, `run-detail`, `run-start`, `login`. Each is a standalone component lazy-loaded via `loadComponent`.
-  - `app/shared/` — reusable presentational components (`StatusBadge`, `Card`, `EmptyState`, `Spinner`, `Skeleton`, `Modal`, `Toast`).
+  - `app/shared/` — reusable presentational components (`StatusBadge`, `Card`, `EmptyState`, `Spinner`, `Skeleton`, `Modal`, `Toast`, `FullPageError`).
   - `app/models/` — TS interfaces mirroring `docs/data-model.md`.
-
-**BFF Proxy (`bff/`)**
-- **Purpose:** Hold the orchestrator API key, expose a session-cookie-protected `/api/v1/*` surface to the SPA, and stream the trace NDJSON through to the browser.
-- **Responsibilities:**
-  - `/auth/login`, `/auth/logout`, `/auth/me` — operator session.
-  - `/api/v1/runs*`, `/api/v1/agents*` — JSON forwarders. Inject `Authorization: Bearer ...` from env. Pass through the orchestrator's `{ data, meta }` envelope unchanged. Pass through `application/problem+json` errors with original status and body.
-  - `/api/v1/runs/:id/trace` — NDJSON pass-through using `pipeline()` so the SPA can read line-by-line.
-- **Responsibilities it does NOT have:** No business logic, no transformation, no caching, no rate limiting (the orchestrator owns those).
-- **Key Dependencies:** Fastify (or Express), `undici`/native `fetch`, `cookie-session`.
+  - `environments/` — `environment.example.ts` ships; `environment.ts` and `environment.prod.ts` are gitignored and materialized at build/deploy time.
 
 **Orchestrator (external)**
 - See `carestechs-agent-orchestrator/docs/ARCHITECTURE.md` and `docs/api-spec.md`. Contract authority lives there.
+- Must allow the SPA's origin in CORS and include `authorization, content-type` in `Access-Control-Allow-Headers`. Must allow `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /v1/runs/:id/trace`.
 
 ## Data Flow
 
 ### Read flow (runs list)
 
-1. Browser → `GET /api/v1/runs?status=paused&page=1&pageSize=20` (cookie attached).
-2. BFF validates session, forwards to orchestrator with `Authorization: Bearer ...`.
-3. Orchestrator returns `{ data: [...], meta: { page, pageSize, total } }`.
-4. BFF streams response body through unchanged.
-5. Angular `RunsService` parses into `RunSummary[]`, exposes via `signal()` to `RunsListComponent`.
+1. Browser → `GET ${orchestratorBaseUrl}/v1/runs?status=paused&page=1&pageSize=20` with `Authorization: Bearer ${orchestratorApiKey}`.
+2. Orchestrator returns `{ data: [...], meta: { page, pageSize, total } }`.
+3. Angular `RunsService` parses into `RunSummary[]`, exposes via `signal()` to `RunsListComponent`.
 
 ### Trace stream flow
 
-1. Browser opens `fetch('/api/v1/runs/:id/trace?follow=true')`.
-2. BFF opens upstream `fetch` with `Authorization`, then pipes the response body through to the browser response (no buffering).
+1. Browser opens `fetch(${orchestratorBaseUrl}/v1/runs/:id/trace?follow=true, { headers: { Authorization } })`.
+2. Orchestrator streams NDJSON; the response is NOT buffered by any reverse proxy in front of it (`X-Accel-Buffering: no` if nginx).
 3. SPA consumes via `ReadableStream` reader, splits on `\n`, parses each line as a `TraceRecord`, appends to a signal.
 4. UI groups records by `stepNumber`, renders a vertical timeline.
 
@@ -99,39 +89,45 @@ No database. The UI is stateless beyond the operator session cookie.
 
 1. User opens a paused run; UI inspects the trace for the last `executor_call` with `state=dispatched` and `mode=human`. Pre-fills `taskId` from its `intake`.
 2. User fills `commitSha`, `prUrl`, optional `diff` and `implementationNotes`.
-3. Browser → `POST /api/v1/runs/:id/signals` with body `{ name: 'implementation-complete', taskId, payload }`.
-4. BFF forwards. Orchestrator returns `202` with `meta.alreadyReceived` if duplicate.
+3. Browser → `POST ${orchestratorBaseUrl}/v1/runs/:id/signals` with body `{ name: 'implementation-complete', taskId, payload }`.
+4. Orchestrator returns `202` with `meta.alreadyReceived` if duplicate.
 5. SPA shows success toast, keeps the trace stream open to watch the run advance.
 
 ## Integration Points
 
 | Service | Purpose | Auth Method | Failure Strategy |
 |---------|---------|-------------|------------------|
-| `carestechs-agent-orchestrator` HTTP API | Source of all data; target of all writes | Bearer API key (server-side env, BFF only) | Pass through orchestrator's RFC 7807 errors verbatim. UI shows full-page error if BFF cannot reach upstream after one immediate retry. |
+| `carestechs-agent-orchestrator` HTTP API | Source of all data; target of all writes | `Authorization: Bearer ${ORCHESTRATOR_API_KEY}` attached by the SPA | Pass through orchestrator's RFC 7807 errors verbatim. UI shows full-page error if the orchestrator is unreachable after one immediate retry. 401 → operator gate locks, redirect to `/login?reason=expired`. |
 
 No external services beyond the orchestrator. No analytics, no telemetry to third parties in v1.
 
 ## Security Architecture
 
-- **Authentication (operator):** Session cookie issued by BFF after operator submits a shared passphrase. `httpOnly`, `sameSite=lax`, `secure` in production.
-- **Authentication (upstream):** Single static bearer API key in BFF env. Never logged, never sent to browser, never written to disk outside env.
-- **Authorization:** Single role in v1 — any authenticated operator can read and write everything the orchestrator exposes. RBAC is out of scope.
-- **Data Protection:** No PII handled by the UI. Trace payloads can include diffs and PR URLs; treat as confidential at rest. TLS termination at the ingress.
-- **API Security:**
-  - BFF validates session on every `/api/v1/*` request.
-  - Inputs forwarded as-is; the orchestrator validates payload shapes upstream.
-  - CSRF: form-encoded writes use double-submit cookie or SameSite=Strict on the session cookie; JSON writes from the SPA are protected by SameSite + custom header check.
-  - No CORS — same-origin SPA + BFF.
-- **Threats explicitly considered:** API key leakage to browser bundles, session fixation, NDJSON connection exhaustion (BFF caps concurrent open trace streams per session).
+### Interim security posture
+
+The SPA ships `ORCHESTRATOR_API_KEY` in its bundle. This is acceptable **only because the orchestrator deployment is not publicly reachable** — authentication relies on network position (VPN, internal ingress, or equivalent). Anyone who can reach the SPA URL can extract the key from the bundle; the assumption is that "anyone who can reach the SPA URL" is already the small, trusted set of operators.
+
+**This must be re-confirmed at every deployment topology change.** A public ingress, an accidental CORS opening to the world, or moving the orchestrator to a reachable host instantly breaks this posture. The only durable fix is real per-operator authentication at the orchestrator, tracked as FEAT-004.
+
+Operator activity is not currently auditable per-user; from the orchestrator's perspective every operator looks like the same API key. This is also resolved by FEAT-004.
+
+### Other properties
+
+- **Operator gate (SPA-side):** A `sessionStorage` flag is set when the operator types the configured passphrase. Per-tab, dies on tab close. **Not real authentication** — the network is the real gate. The passphrase value is in the bundle alongside the API key.
+- **Authorization model:** Single role in v1 — any operator who can reach the SPA can read and write everything the orchestrator exposes. RBAC is out of scope.
+- **Data protection:** No PII handled by the SPA. Trace payloads can include diffs and PR URLs; treat as confidential at rest. TLS termination at the orchestrator's ingress.
+- **Bundle-leak gate:** `scripts/check-no-secrets-in-bundle.sh` runs as `npm run build`'s `postbuild`. After FEAT-003 it forbids nothing by default (the API key and passphrase are *expected* in the bundle). The script keeps the `scan_forbidden` hook so future genuinely-must-not-bundle secrets can be registered with one line.
+- **CORS:** Orchestrator must allow the SPA's origin and `authorization` / `content-type` headers, and respond to `OPTIONS` preflight including on the streaming trace endpoint.
+- **Audit trail:** Not implemented in v1. Tracked under FEAT-004.
 
 ## AI Task Generation Notes
 
 > These notes help AI assistants generate technically correct tasks.
 
-- **Respect component boundaries.** SPA never calls the orchestrator. BFF owns no business logic. Adding either is a red flag.
-- **Follow the defined data flow.** New screens read through services; services own HTTP; HTTP goes to the BFF.
+- **The SPA owns no backend.** New runtime concerns must be solved client-side, in the orchestrator, or as part of FEAT-004 (real auth). Do not propose a new BFF.
+- **Follow the defined data flow.** New screens read through services in `app/core/`; services own HTTP; HTTP goes to the orchestrator directly with a Bearer header attached by `ApiClient`.
 - **Use only listed technologies** unless proposing an architectural change (which needs an ADR adoption from `carestechs-software-architecture`).
-- **Honor the security architecture.** Every new BFF route checks the session cookie. Never log secrets. Never pass orchestrator credentials further than the upstream call.
+- **Honor the interim security posture.** Never put new secrets into `environment.*.ts` without checking whether they should ship in the bundle. The bundle-leak gate is the catch-all.
 - **Conform to ADRs.** When in doubt, the ADRs in `carestechs-software-architecture/adrs/angular/` and `adrs/typescript/` win.
 - **Conform to the design system.** When in doubt, the `modern-minimal` profile and DDRs in `carestechs-ui-design/` win.
 
@@ -142,3 +138,4 @@ No external services beyond the orchestrator. No analytics, no telemetry to thir
 | 2026-05-09 | Initial architecture from orchestrator-ui-starter.md, Angular ADRs, and modern-minimal profile. |
 | 2026-05-09 | FEAT-001 audit — "API key never reaches browser" property is now mechanically enforced by `scripts/check-no-secrets-in-bundle.sh` (run from `npm run build` `postbuild`) and a Playwright assertion in `e2e/critical-path.spec.ts` that no browser-initiated request carries an `Authorization` header. |
 | 2026-05-10 | FEAT-002 — `features/run-start/` activated (route + form + submit). `RunsService.startRun` extends the existing service. Lighthouse a11y CI gate now also covers `/runs/new` (≥ 0.95). |
+| 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly with a Bearer header. Component Roles, Data Flow, and Security sections rewritten. New **Interim security posture** subsection names the network-gating assumption explicitly. Bundle-leak gate inverted (API key and passphrase now expected in the bundle; framework hook preserved). E2E secret-capture assertions inverted to match. |
