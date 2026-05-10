@@ -27,6 +27,12 @@ test-results/
 *.pem
 *.key
 
+# Angular environment files (FEAT-003) — only the example template ships.
+# Real values (orchestrator URL, API key, operator passphrase) live locally
+# and in CI/CD secrets. Never `git add -f` these.
+src/environments/environment.ts
+src/environments/environment.prod.ts
+
 # Editor / OS
 .DS_Store
 Thumbs.db
