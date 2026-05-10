@@ -21,25 +21,25 @@ export class ApiClient {
   private readonly http = inject(HttpClient);
 
   get<T>(path: string, params?: Params): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.get<Envelope<T>>(this.url(path), this.opts(params)), path);
+    return this.send<T>(this.http.get<Envelope<T>>(this.url(path), this.opts(params)));
   }
 
   post<T>(path: string, body: unknown): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.post<Envelope<T>>(this.url(path), body, this.opts()), path);
+    return this.send<T>(this.http.post<Envelope<T>>(this.url(path), body, this.opts()));
   }
 
   delete<T>(path: string): Observable<UnwrappedEnvelope<T>> {
-    return this.send<T>(this.http.delete<Envelope<T>>(this.url(path), this.opts()), path);
+    return this.send<T>(this.http.delete<Envelope<T>>(this.url(path), this.opts()));
   }
 
   private url(path: string): string {
     return `${environment.orchestratorBaseUrl}${path}`;
   }
 
-  private send<T>(source: Observable<Envelope<T>>, path: string): Observable<UnwrappedEnvelope<T>> {
+  private send<T>(source: Observable<Envelope<T>>): Observable<UnwrappedEnvelope<T>> {
     return source.pipe(
       map((env) => ({ data: env?.data as T, meta: env?.meta ?? null })),
-      catchError((err: unknown) => throwError(() => this.toProblem(err, path))),
+      catchError((err: unknown) => throwError(() => this.toProblem(err))),
     );
   }
 
@@ -61,7 +61,7 @@ export class ApiClient {
     return { headers, params: httpParams };
   }
 
-  private toProblem(err: unknown, path: string): ProblemDetailsError {
+  private toProblem(err: unknown): ProblemDetailsError {
     if (!(err instanceof HttpErrorResponse)) {
       return new ProblemDetailsError({
         type: 'about:blank',
