@@ -31,6 +31,22 @@ jobs:
           chrome-version: stable
       - run: npm ci
 
+      # FEAT-003 T-029 — Angular fileReplacements requires both env files to
+      # exist at build time even if no source code imports them yet. Real
+      # values are gitignored; CI materializes test placeholders here.
+      - name: Materialize SPA env files
+        run: |
+          cat > src/environments/environment.ts <<'EOF'
+          import type { EnvironmentConfig } from './environment.example';
+          export const environment: EnvironmentConfig = {
+            production: false,
+            orchestratorBaseUrl: 'http://127.0.0.1:4100',
+            orchestratorApiKey: 'test-key-do-not-leak',
+            operatorPassphrase: 'e2e-passphrase',
+          };
+          EOF
+          cp src/environments/environment.ts src/environments/environment.prod.ts
+
       - name: Build SPA + BFF (postbuild scans for secret leaks)
         run: npm run build
 
