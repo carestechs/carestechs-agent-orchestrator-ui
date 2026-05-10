@@ -49,11 +49,13 @@
     } @else if (sortedRuns().length === 0) {
       <div class="text-center py-12 text-slate-500">No runs match this filter.</div>
     } @else {
-      <ul class="space-y-2">
+      <ul class="space-y-2" data-testid="runs-table">
         @for (run of sortedRuns(); track run.id) {
           <li>
             <a
               [routerLink]="['/runs', run.id]"
+              [attr.data-testid]="'run-row'"
+              [attr.data-run-id]="run.id"
               class="block bg-white rounded-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4 grid grid-cols-12 gap-4 items-center"
             >
               <div class="col-span-2"><app-run-status-badge [status]="run.status" /></div>

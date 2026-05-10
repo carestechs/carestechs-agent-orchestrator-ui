@@ -1,0 +1,28 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:4200/login",
+        "http://localhost:4200/runs",
+        "http://localhost:4200/runs/run-e2e-001"
+      ],
+      "numberOfRuns": 1,
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": ["accessibility"],
+        "chromeFlags": "--no-sandbox --headless=new"
+      },
+      "puppeteerScript": "./scripts/lhci-puppeteer-login.js",
+      "puppeteerLaunchOptions": { "args": ["--no-sandbox"] }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 0.95 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": "./.lighthouseci"
+    }
+  }
+}

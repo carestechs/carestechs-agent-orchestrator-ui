@@ -231,3 +231,4 @@ None. Same-origin only. The SPA is served from the same origin as the BFF.
 | Date | Change |
 |------|--------|
 | 2026-05-09 | Initial spec — auth surface + `/api/v1/*` pass-through derived from `orchestrator-ui-starter.md`. |
+| 2026-05-09 | FEAT-001 audit — confirmed BFF envelope shapes (`{ data, meta }` for resources, `{ data, meta: Pagination }` for collections), `application/x-ndjson` + `X-Accel-Buffering: no` on the trace pass-through, and that the error-catalog `code` strings flow through the BFF unchanged. |

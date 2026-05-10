@@ -2,10 +2,8 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   signal,
-  untracked,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -70,8 +68,6 @@ export class RunsListComponent {
   // Monotonic id to discard stale poll responses that arrive after the
   // operator has changed filters (anti-race per plan T-016 edge cases).
   private requestId = 0;
-  // Suppress the URL-sync effect during the initial seed from queryParamMap.
-  private seeding = true;
   private visibilityHandler: (() => void) | null = null;
 
   readonly statusOptions = STATUS_VALUES;
@@ -82,16 +78,14 @@ export class RunsListComponent {
 
   constructor() {
     this.seedFromQueryParams();
-    this.seeding = false;
 
     void this.loadAgents();
 
-    effect(() => {
-      const q = this.query();
-      if (this.seeding) return;
-      this.syncUrl(q);
-      void this.load();
-    });
+    // URL sync runs on the explicit setters (onStatusChange / onAgentChange /
+    // prev / next). We deliberately do NOT use an `effect()` here: a reactive
+    // navigation queued mid-render races with RouterLink clicks and silently
+    // cancels them. Tested via the e2e suite — clicking a row to /runs/:id
+    // would otherwise snap back to /runs.
 
     // Initial load (the effect won't fire until a signal write).
     void this.load();
@@ -120,19 +114,32 @@ export class RunsListComponent {
   onStatusChange(s: RunStatus): void {
     this.page.set(1);
     this.status.set(s);
+    this.syncUrlAndReload();
   }
 
   onAgentChange(value: string): void {
     this.page.set(1);
     this.agentRef.set(value || null);
+    this.syncUrlAndReload();
   }
 
   prev(): void {
-    if (!this.prevDisabled()) this.page.update((p) => p - 1);
+    if (!this.prevDisabled()) {
+      this.page.update((p) => p - 1);
+      this.syncUrlAndReload();
+    }
   }
 
   next(): void {
-    if (!this.nextDisabled()) this.page.update((p) => p + 1);
+    if (!this.nextDisabled()) {
+      this.page.update((p) => p + 1);
+      this.syncUrlAndReload();
+    }
+  }
+
+  private syncUrlAndReload(): void {
+    this.syncUrl(this.query());
+    void this.load();
   }
 
   onRetry(): void {
@@ -176,12 +183,12 @@ export class RunsListComponent {
     }
     const id = ++this.requestId;
     try {
-      const filters = untracked(() => ({
+      const filters = {
         status: this.status(),
         agentRef: this.agentRef() ?? undefined,
         page: this.page(),
         pageSize: this.pageSize(),
-      }));
+      };
       const result = await firstValueFrom(this.runsService.list(filters));
       if (id !== this.requestId) return;
       this.runs.set(result.data);

@@ -1,6 +1,8 @@
 <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm" aria-live="polite">
   @for (t of toasts(); track t.id) {
     <div
+      data-testid="toast"
+      [attr.data-variant]="t.variant"
       class="rounded-lg shadow-md p-4 flex items-start gap-3 bg-white border-l-4"
       [class.border-emerald-500]="t.variant === 'success'"
       [class.border-sky-500]="t.variant === 'info'"

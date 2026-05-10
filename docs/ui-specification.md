@@ -242,3 +242,4 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 | Date | Change |
 |------|--------|
 | 2026-05-09 | Initial UI spec — modern-minimal tokens, three feature screens (login, runs list, run detail), start-run, plus cross-cutting components. |
+| 2026-05-09 | FEAT-001 audit — login/runs-list/run-detail/awaiting-signal-panel shipped. Auth-guard contract: redirect param is `?redirect=<path>` (sanitized to same-origin) on entry, `?reason=expired` on session loss; the v1 implementation uses `redirect`, not `returnUrl`. |

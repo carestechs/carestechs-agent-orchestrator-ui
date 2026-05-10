@@ -32,7 +32,12 @@ describe('cookie-session', () => {
     const payload = { sub: 'operator' as const, iat: Date.now(), exp: Date.now() + 60_000 };
     const token = signSession(payload, SECRET);
     const [body, sig] = token.split('.');
-    const tampered = `${body}.${sig?.slice(0, -1)}A`;
+    // Pick a replacement char guaranteed not to equal the original last char,
+    // otherwise the "tamper" is a no-op when the signature happens to end in
+    // that letter (1/64 chance with base64url — flaked once on CI).
+    const last = sig?.slice(-1) ?? '';
+    const replacement = last === 'A' ? 'B' : 'A';
+    const tampered = `${body}.${sig?.slice(0, -1)}${replacement}`;
     expect(verifySession(tampered, SECRET)).toBeNull();
   });
 
