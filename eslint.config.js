@@ -80,14 +80,6 @@ module.exports = tseslint.config(
     rules: {},
   },
   {
-    files: ['bff/**/*.ts'],
-    extends: [eslint.configs.recommended, ...tseslint.configs.recommended],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      'no-console': ['error', { allow: ['error'] }],
-    },
-  },
-  {
     // Loosen rules for config files at the repo root.
     files: ['*.js', '*.cjs', '*.mjs'],
     languageOptions: {
