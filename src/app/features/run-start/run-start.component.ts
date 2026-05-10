@@ -11,10 +11,19 @@ import { Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { debounceTime, startWith } from 'rxjs';
 import { AgentsService } from '../../core/agents.service';
+import { RunsService } from '../../core/runs.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
 import { FullPageErrorComponent } from '../../shared/full-page-error.component';
-import type { Agent } from '../../models';
+import type { Agent, StartRunRequest } from '../../models';
 import { intakeJsonValidator, maxStepsValidator, parseIntake } from './intake-json.validator';
+
+export type SubmitErrorScope = 'intake' | 'agent' | 'page';
+export interface SubmitError {
+  scope: SubmitErrorScope;
+  title: string;
+  detail?: string;
+  code?: string;
+}
 
 function maxStepsCtrlValidator(ctrl: AbstractControl): ValidationErrors | null {
   const err = maxStepsValidator(ctrl.value as number | null | undefined);
@@ -30,12 +39,14 @@ function maxStepsCtrlValidator(ctrl: AbstractControl): ValidationErrors | null {
 })
 export class RunStartComponent implements OnInit {
   private readonly agentsService = inject(AgentsService);
+  private readonly runsService = inject(RunsService);
   private readonly fb = inject(FormBuilder);
   private readonly location = inject(Location);
   private readonly router = inject(Router);
 
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
+  readonly submitError = signal<SubmitError | null>(null);
 
   readonly agents = signal<Agent[]>([]);
   readonly agentsLoading = signal(true);
@@ -144,6 +155,58 @@ export class RunStartComponent implements OnInit {
 
   onSubmit(event: Event): void {
     event.preventDefault();
-    // T-026 will implement.
+    if (this.submitDisabled()) return;
+
+    const intakeRaw = this.form.controls.intake.value;
+    const parsed = parseIntake(intakeRaw);
+    if (!parsed.valid || !parsed.parsed) return;
+
+    const maxSteps = this.form.controls.maxSteps.value;
+    const req: StartRunRequest = {
+      agentRef: this.form.controls.agentRef.value,
+      intake: parsed.parsed,
+      // Omit `budget` entirely when blank — the orchestrator applies its
+      // default. Sending `budget: { maxSteps: null }` is rejected upstream.
+      ...(maxSteps !== null && maxSteps !== undefined ? { budget: { maxSteps } } : {}),
+    };
+
+    this.submitting.set(true);
+    this.submitError.set(null);
+    this.runsService.startRun(req).subscribe({
+      next: (run) => {
+        // Leave `submitting=true` through navigation so the button stays
+        // disabled until the component is destroyed; prevents a stray
+        // double-click during the route change. Reset only on a navigation
+        // failure (rare; only on a guard mismatch).
+        void this.router.navigate(['/runs', run.id]).then((ok) => {
+          if (!ok) this.submitting.set(false);
+        });
+      },
+      error: (err: unknown) => {
+        this.submitting.set(false);
+        this.submitError.set(this.mapError(err));
+      },
+    });
+  }
+
+  private mapError(err: unknown): SubmitError {
+    if (err instanceof ProblemDetailsError) {
+      const base: SubmitError = { scope: 'page', title: err.title };
+      if (err.detail !== undefined) base.detail = err.detail;
+      if (err.code !== undefined) base.code = err.code;
+      if (err.code === 'invalid-intake') return { ...base, scope: 'intake' };
+      if (err.code === 'agent-not-found') return { ...base, scope: 'agent' };
+      return base; // upstream-unavailable, upstream-error, status 0, unknown.
+    }
+    return { scope: 'page', title: 'Unexpected error' };
+  }
+
+  retrySubmit = (): void => {
+    this.onSubmit(new Event('submit'));
+  };
+
+  refreshAgentsAfterError(): void {
+    this.submitError.set(null);
+    this.loadAgents();
   }
 }

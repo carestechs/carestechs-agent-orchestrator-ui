@@ -151,3 +151,73 @@ describe('RunsService.cancel', () => {
     expect((caught as ProblemDetailsError).code).toBe('run-already-terminal');
   });
 });
+
+describe('RunsService.startRun', () => {
+  const sampleReq = {
+    agentRef: 'lifecycle-agent@0.3.0',
+    intake: { featureBriefPath: 'docs/work-items/FEAT-042.md' },
+  };
+  const sampleRun = {
+    id: 'run-new-1',
+    agentRef: 'lifecycle-agent@0.3.0',
+    status: 'running' as const,
+    intake: { featureBriefPath: 'docs/work-items/FEAT-042.md' },
+    startedAt: '2026-05-10T10:00:00Z',
+    endedAt: null,
+    lastStepNumber: null,
+    terminationReason: null,
+  };
+
+  it('POSTs the request body to /api/v1/runs and unwraps data to a RunSummary', () => {
+    let result: unknown;
+    runs.startRun(sampleReq).subscribe((r) => (result = r));
+    const req = httpMock.expectOne('/api/v1/runs');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(sampleReq);
+    req.flush({ data: sampleRun, meta: null });
+    expect(result).toMatchObject({ id: 'run-new-1', status: 'running' });
+  });
+
+  it('forwards an optional budget.maxSteps in the request body', () => {
+    runs.startRun({ ...sampleReq, budget: { maxSteps: 200 } }).subscribe();
+    const req = httpMock.expectOne('/api/v1/runs');
+    expect(req.request.body).toEqual({ ...sampleReq, budget: { maxSteps: 200 } });
+    req.flush({ data: sampleRun, meta: null });
+  });
+
+  it('propagates 400 invalid-intake as ProblemDetailsError', () => {
+    let caught: unknown;
+    runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
+    const req = httpMock.expectOne('/api/v1/runs');
+    req.flush(
+      { type: 'about:blank', title: 'Intake JSON failed validation', status: 400, code: 'invalid-intake' },
+      { status: 400, statusText: 'Bad Request', headers: { 'content-type': 'application/problem+json' } },
+    );
+    expect(caught).toBeInstanceOf(ProblemDetailsError);
+    expect((caught as ProblemDetailsError).code).toBe('invalid-intake');
+  });
+
+  it('propagates 404 agent-not-found as ProblemDetailsError', () => {
+    let caught: unknown;
+    runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
+    const req = httpMock.expectOne('/api/v1/runs');
+    req.flush(
+      { type: 'about:blank', title: 'Agent not found', status: 404, code: 'agent-not-found' },
+      { status: 404, statusText: 'Not Found', headers: { 'content-type': 'application/problem+json' } },
+    );
+    expect(caught).toBeInstanceOf(ProblemDetailsError);
+    expect((caught as ProblemDetailsError).code).toBe('agent-not-found');
+  });
+
+  it('propagates 502 upstream-unavailable as ProblemDetailsError', () => {
+    let caught: unknown;
+    runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
+    const req = httpMock.expectOne('/api/v1/runs');
+    req.flush(
+      { type: 'about:blank', title: 'Orchestrator unavailable', status: 502, code: 'upstream-unavailable' },
+      { status: 502, statusText: 'Bad Gateway', headers: { 'content-type': 'application/problem+json' } },
+    );
+    expect(caught).toBeInstanceOf(ProblemDetailsError);
+    expect((caught as ProblemDetailsError).code).toBe('upstream-unavailable');
+  });
+});

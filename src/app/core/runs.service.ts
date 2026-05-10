@@ -3,7 +3,7 @@ import type { Observable } from 'rxjs';
 import { map } from 'rxjs';
 import { ApiClient, type Params } from './api-client';
 import { clampPageSize } from './pagination';
-import type { Pagination, RunDetail, RunStatus, RunSummary } from '../models';
+import type { Pagination, RunDetail, RunStatus, RunSummary, StartRunRequest } from '../models';
 
 export interface RunListFilters {
   status?: RunStatus;
@@ -50,6 +50,14 @@ export class RunsService {
     return this.api
       .post<RunSummary>(`/api/v1/runs/${encodeURIComponent(runId)}/cancel`, {})
       .pipe(map(({ data }) => data));
+  }
+
+  // POST /api/v1/runs — orchestrator returns 202 with the new RunSummary.
+  // Errors flow as ProblemDetailsError via ApiClient (400 invalid-intake,
+  // 404 agent-not-found, 502 upstream-unavailable). Caller maps them to
+  // the correct UI surface (inline / page-level).
+  startRun(req: StartRunRequest): Observable<RunSummary> {
+    return this.api.post<RunSummary>('/api/v1/runs', req).pipe(map(({ data }) => data));
   }
 }
 

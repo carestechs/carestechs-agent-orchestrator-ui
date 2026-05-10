@@ -17,6 +17,13 @@
       [code]="ae.code"
       [retry]="retryLoadAgents"
     />
+  } @else if (submitError()?.scope === 'page') {
+    <app-full-page-error
+      [title]="submitError()!.title"
+      [detail]="submitError()!.detail"
+      [code]="submitError()!.code"
+      [retry]="retrySubmit"
+    />
   } @else if (agentsLoading()) {
     <div class="bg-white rounded-lg shadow-sm p-6 space-y-5" data-testid="agents-loading">
       <div>
@@ -71,6 +78,20 @@
         @if (form.controls.agentRef.touched && form.controls.agentRef.invalid) {
           <p class="text-red-500 text-sm mt-1" data-testid="agent-required-error">Pick an agent.</p>
         }
+        @if (submitError()?.scope === 'agent') {
+          <div class="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="agent-error">
+            <div class="font-medium">{{ submitError()!.title }}</div>
+            @if (submitError()!.detail) {
+              <div class="text-xs text-red-600 mt-0.5">{{ submitError()!.detail }}</div>
+            }
+            <button
+              type="button"
+              (click)="refreshAgentsAfterError()"
+              data-testid="refresh-agents-after-error"
+              class="mt-1.5 text-xs text-sky-600 hover:text-sky-700 font-medium"
+            >Refresh agents</button>
+          </div>
+        }
       </div>
 
       <div>
@@ -101,6 +122,14 @@
         ></textarea>
         @if (intakeErrorMessage(); as msg) {
           <p id="intake-error" role="status" data-testid="intake-error" class="text-red-500 text-sm mt-1">{{ msg }}</p>
+        }
+        @if (submitError()?.scope === 'intake') {
+          <div class="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="intake-server-error">
+            <div class="font-medium">{{ submitError()!.title }}</div>
+            @if (submitError()!.detail) {
+              <div class="text-xs text-red-600 mt-0.5">{{ submitError()!.detail }}</div>
+            }
+          </div>
         }
       </div>
 
