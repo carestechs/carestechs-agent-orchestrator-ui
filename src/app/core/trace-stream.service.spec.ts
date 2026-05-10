@@ -74,6 +74,20 @@ describe('TraceStreamService', () => {
     s.close();
   });
 
+  it('opens the orchestrator URL with Authorization: Bearer and no credentials: include', async () => {
+    const s = makeStreamingResponse();
+    fetchSpy.mockResolvedValueOnce(s.response);
+    svc.open('r1');
+    s.push(sampleStep('rec-1', '2026-05-09T09:00:01Z') + '\n');
+    await new Promise((r) => setTimeout(r, 10));
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:4100\/v1\/runs\/r1\/trace\?/);
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers['Authorization']).toMatch(/^Bearer /);
+    expect((init as RequestInit).credentials).toBeUndefined();
+    s.close();
+  });
+
   it('buffers partial lines across chunk boundaries', async () => {
     const s = makeStreamingResponse();
     fetchSpy.mockResolvedValueOnce(s.response);

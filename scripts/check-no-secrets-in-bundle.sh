@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
-# Scans the SPA bundle for accidental leaks of the orchestrator API key value
-# and any literal `Authorization: Bearer` string. Exits non-zero on match.
+# Scans the SPA bundle for accidental leaks of secrets that should NEVER ship
+# to the browser. Exits non-zero on match.
 #
-# IMPORTANT: never prints the matched key value — only the offending file path
-# and line number. The key is only present in the script's environment, not on
-# disk.
+# After FEAT-003 the orchestrator API key IS in the bundle by design (the
+# orchestrator deployment is network-gated; the key's confidentiality is not
+# the security property we rely on). The operator passphrase is also in the
+# bundle by design (it's a SPA-side UX gate, not a secret).
+#
+# So today the script forbids NOTHING by default — it's scaffolding for the
+# day a new env var lands that genuinely must not bundle. To add a forbidden
+# value, add a line below:
+#
+#   scan_forbidden 'SOME_LABEL' "${SOME_ENV_VAR:-}"
+#
+# Each scan prints path:lineno only — never the matched value.
 set -euo pipefail
 
 DIST_DIR="${DIST_DIR:-dist/spa/browser}"
@@ -14,42 +23,30 @@ if [ ! -d "$DIST_DIR" ]; then
   exit 0
 fi
 
-if [ -z "${ORCHESTRATOR_API_KEY:-}" ]; then
-  echo "[check-no-secrets] ORCHESTRATOR_API_KEY not set; skipping value-scan." >&2
-  echo "[check-no-secrets] (Authorization-literal scan still runs.)" >&2
-  SKIP_KEY_SCAN=1
-else
-  SKIP_KEY_SCAN=0
-fi
-
 FAIL=0
 
-# Scan 1: literal API key value. NEVER print the matched value — only
-# `path:lineno`.
-if [ "$SKIP_KEY_SCAN" -eq 0 ]; then
-  MATCHES=$(grep -rnFI \
+scan_forbidden() {
+  local label="$1"
+  local value="$2"
+  if [ -z "$value" ]; then
+    echo "[check-no-secrets] $label not set in env; skipping its scan." >&2
+    return
+  fi
+  local matches
+  matches=$(grep -rnFI \
     --include='*.js' --include='*.css' --include='*.html' --include='*.map' \
-    -e "$ORCHESTRATOR_API_KEY" "$DIST_DIR" 2>/dev/null | cut -d: -f1,2 || true)
-  if [ -n "$MATCHES" ]; then
-    echo "[check-no-secrets] FAIL: orchestrator API key value found in build output:" >&2
-    echo "$MATCHES" >&2
+    -e "$value" "$DIST_DIR" 2>/dev/null | cut -d: -f1,2 || true)
+  if [ -n "$matches" ]; then
+    echo "[check-no-secrets] FAIL: $label value found in bundle (path:lineno only):" >&2
+    echo "$matches" >&2
     FAIL=1
   fi
-fi
+}
 
-# Scan 2: literal "Authorization: Bearer". Safe to print since the literal
-# string carries no secret.
-AUTH_MATCHES=$(grep -rniI \
-  --include='*.js' --include='*.css' --include='*.html' --include='*.map' \
-  -E 'Authorization[[:space:]]*:[[:space:]]*Bearer' "$DIST_DIR" 2>/dev/null || true)
-if [ -n "$AUTH_MATCHES" ]; then
-  echo "[check-no-secrets] FAIL: 'Authorization: Bearer' literal found in build output:" >&2
-  echo "$AUTH_MATCHES" >&2
-  FAIL=1
-fi
+# (No forbidden values registered today — see header comment.)
 
 if [ "$FAIL" -ne 0 ]; then
   exit 1
 fi
 
-echo "[check-no-secrets] OK: no API key value or Authorization literal in $DIST_DIR."
+echo "[check-no-secrets] OK: no forbidden values found in $DIST_DIR."

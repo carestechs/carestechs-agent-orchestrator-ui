@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { TraceRecord, TraceRecordKind } from '../models';
 import { notifyAuthExpired } from './auth-events';
+import { environment } from '../../environments/environment';
 import { createParserState, flush, parseTraceLine, pushChunk } from './ndjson-parser';
 
 const MAX_RETRIES = 1;
@@ -58,7 +59,7 @@ export class TraceStreamService {
     const since = this.latestOccurredAt();
     if (since) params.set('since', since);
     for (const kind of this.currentKinds) params.append('kind', kind);
-    return `/api/v1/runs/${encodeURIComponent(this.currentRunId ?? '')}/trace?${params.toString()}`;
+    return `${environment.orchestratorBaseUrl}/v1/runs/${encodeURIComponent(this.currentRunId ?? '')}/trace?${params.toString()}`;
   }
 
   private async run(): Promise<void> {
@@ -69,7 +70,10 @@ export class TraceStreamService {
     const url = this.buildUrl();
     let res: Response;
     try {
-      res = await fetch(url, { credentials: 'include', signal: controller.signal });
+      res = await fetch(url, {
+        headers: { Authorization: `Bearer ${environment.orchestratorApiKey}` },
+        signal: controller.signal,
+      });
     } catch {
       if (controller.signal.aborted) return;
       this.scheduleRetry();

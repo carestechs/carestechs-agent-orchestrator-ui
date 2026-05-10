@@ -15,6 +15,6 @@ export class AgentsService {
   // a "refresh" affordance just invoke list() again. Do not add memoization
   // here without revisiting the run-start empty-state UX (T-025).
   list(): Observable<Agent[]> {
-    return this.api.get<Agent[]>('/api/v1/agents').pipe(map(({ data }) => data));
+    return this.api.get<Agent[]>('/v1/agents').pipe(map(({ data }) => data));
   }
 }
