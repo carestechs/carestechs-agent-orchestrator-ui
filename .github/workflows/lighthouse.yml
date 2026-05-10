@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+        with:
+          chrome-version: stable
       - run: npm ci
 
       - name: Build SPA + BFF (postbuild scans for secret leaks)
@@ -59,6 +63,8 @@ jobs:
             --interval 500
 
       - name: Run Lighthouse CI
+        env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: npm run lhci:run
 
       - name: Show service logs on failure
