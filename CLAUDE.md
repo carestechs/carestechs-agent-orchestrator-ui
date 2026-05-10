@@ -24,6 +24,21 @@ The UI is a consumer of `carestechs-agent-orchestrator`. The orchestrator is hea
 
 ## Quick Reference
 
+### Local environment setup
+
+Before `npm run dev` for the first time on a fresh clone:
+
+1. `cp src/environments/environment.example.ts src/environments/environment.ts`
+2. Edit `environment.ts` and set:
+   - `orchestratorBaseUrl` — local orchestrator URL (or `http://127.0.0.1:4100` for the in-process e2e mock).
+   - `orchestratorApiKey` — your dev API key.
+   - `operatorPassphrase` — any string; this gates the SPA login screen.
+3. For production builds, also create `src/environments/environment.prod.ts` with the same shape and prod values.
+
+Both `environment.ts` and `environment.prod.ts` are gitignored. Never `git add -f` them.
+
+**Security note:** `orchestratorApiKey` is bundled into the browser by design; the orchestrator deployment is gated by network position, not key confidentiality. See `docs/ARCHITECTURE.md` § "Interim security posture".
+
 ### Common Commands
 
 ```bash
