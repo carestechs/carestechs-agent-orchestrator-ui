@@ -51,21 +51,21 @@ jobs:
           echo $! > /tmp/bff.pid
           disown || true
 
-          # ng serve handles SPA fallback (any unknown path returns index.html
-          # so /runs/:id resolves to the Angular app) and the BFF proxy via
-          # proxy.conf.json. http-server with --proxy doesn't combine the two,
-          # which is what 404'd Lighthouse on /runs and /runs/:id.
-          nohup npm run start -- --host 0.0.0.0 > /tmp/lhci-logs/spa.log 2>&1 &
+          # Serve the production build (chunks pre-built — no per-route lazy
+          # compilation) via a tiny custom server that does both SPA fallback
+          # and BFF proxy. ng serve in dev mode triggers per-route compile on
+          # first hit; the run-detail chunk took longer than Lighthouse's 30s
+          # FCP wait on cold CI, causing NO_FCP.
+          nohup npm run lhci:serve > /tmp/lhci-logs/spa.log 2>&1 &
           echo $! > /tmp/spa.pid
           disown || true
 
-          # ng serve compile can take 30–60s on a cold CI runner; budget 3min.
           npx --yes wait-on \
             http-get://127.0.0.1:4100/v1/agents \
             http-get://localhost:4000/auth/me \
             http-get://localhost:4200 \
-            --timeout 180000 \
-            --interval 1000
+            --timeout 60000 \
+            --interval 500
 
       - name: Run Lighthouse CI
         env:

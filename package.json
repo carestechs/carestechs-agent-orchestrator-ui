@@ -10,7 +10,7 @@
     "build": "ng build && tsc -p bff/tsconfig.json",
     "postbuild": "scripts/check-no-secrets-in-bundle.sh",
     "check:no-secrets": "scripts/check-no-secrets-in-bundle.sh",
-    "lhci:serve": "http-server dist/spa/browser -p 4200 -c-1 --proxy http://localhost:4000?",
+    "lhci:serve": "node scripts/serve-spa-with-proxy.mjs",
     "lhci:run": "lhci autorun",
     "upstream-mock": "node --import tsx scripts/start-upstream-mock.mjs",
     "test": "vitest run",
