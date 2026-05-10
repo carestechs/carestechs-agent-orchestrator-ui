@@ -204,12 +204,24 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 **Purpose:** Kick off a new run.
 
 **Components:**
-- Agent dropdown (from `GET /api/v1/agents`).
-- Intake JSON editor (textarea with monospace; client-side JSON validation).
-- Optional `maxSteps` numeric input.
-- Submit (`Start run`) and Cancel.
+- Agent dropdown (from `GET /api/v1/agents`). Empty state with refresh button when zero agents are registered.
+- Intake JSON editor (textarea, monospace 12 rows). Synchronous validator gates submit; inline parse error displays after a 200ms debounce. **Format** button pretty-prints valid input (no-op on invalid).
+- Optional `maxSteps` numeric input — positive integer, blank = omit `budget` from the request (orchestrator default applies; the SPA does not send `budget: { maxSteps: null }`).
+- Submit (`Start run`) and Cancel. Cancel uses `Location.back()` when there is a real history entry, else falls back to `/runs`.
+- Reachable from `/runs` via two CTAs: a primary header link and a secondary empty-state CTA.
 
-**States:** default, validating, submitting, success → redirect to `/runs/:id`, error → inline.
+**States:**
+- *Default* — agents loaded, form ready.
+- *Agents loading* — pulsing skeletons in place of the form.
+- *No agents registered* — empty-state card with "Refresh agents".
+- *Invalid intake JSON* — inline parse error, submit disabled.
+- *Submitting* — fields/buttons disabled, spinner on Submit.
+- *Server error scoped to intake* (`400 invalid-intake`) — inline alert under the editor; typed payload preserved.
+- *Server error scoped to agent* (`404 agent-not-found`) — inline alert under the picker with a "Refresh agents" affordance.
+- *Page-level error* (`502 upstream-unavailable`, network, unknown) — full-page error, form hidden, retry re-submits the unchanged payload.
+- *Success* → redirect to `/runs/:id`. Submit stays disabled through navigation so a stray double-click can't double-submit.
+
+**Submit guard:** `submitDisabled` reads form validity, agent count, and an in-flight flag — synchronous so the button locks instantly on the first invalid keystroke.
 
 ---
 
@@ -243,3 +255,4 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 |------|--------|
 | 2026-05-09 | Initial UI spec — modern-minimal tokens, three feature screens (login, runs list, run detail), start-run, plus cross-cutting components. |
 | 2026-05-09 | FEAT-001 audit — login/runs-list/run-detail/awaiting-signal-panel shipped. Auth-guard contract: redirect param is `?redirect=<path>` (sanitized to same-origin) on entry, `?reason=expired` on session loss; the v1 implementation uses `redirect`, not `returnUrl`. |
+| 2026-05-10 | FEAT-002 — Run Start built. Documents agent picker empty-state, debounced JSON validator, format button, scoped error mapping (intake / agent / page), `Location.back()` cancel fallback, and the now-active "Start a run" CTAs on `/runs`. |
