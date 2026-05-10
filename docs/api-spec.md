@@ -232,3 +232,5 @@ None. Same-origin only. The SPA is served from the same origin as the BFF.
 |------|--------|
 | 2026-05-09 | Initial spec — auth surface + `/api/v1/*` pass-through derived from `orchestrator-ui-starter.md`. |
 | 2026-05-09 | FEAT-001 audit — confirmed BFF envelope shapes (`{ data, meta }` for resources, `{ data, meta: Pagination }` for collections), `application/x-ndjson` + `X-Accel-Buffering: no` on the trace pass-through, and that the error-catalog `code` strings flow through the BFF unchanged. |
+| 2026-05-10 | FEAT-002 — `POST /api/v1/runs` is now consumed by the SPA from `/runs/new`. Contract unchanged. The SPA omits the `budget` key entirely when `maxSteps` is blank rather than sending `budget: { maxSteps: null }`. |
+| 2026-05-10 | FEAT-002 — fixed BFF `/api/v1/*` JSON body forwarding. Fastify's default `application/json` parser was shadowing the custom buffer parser, so POST bodies were arriving as parsed objects and getting coerced to `"[object Object]"` when forwarded. `bff/src/server.ts` now calls `removeAllContentTypeParsers()` first; pass-through is now byte-correct as originally specified. |
