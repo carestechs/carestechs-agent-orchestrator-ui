@@ -1,0 +1,24 @@
+<div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm" aria-live="polite">
+  @for (t of toasts(); track t.id) {
+    <div
+      class="rounded-lg shadow-md p-4 flex items-start gap-3 bg-white border-l-4"
+      [class.border-emerald-500]="t.variant === 'success'"
+      [class.border-sky-500]="t.variant === 'info'"
+      [class.border-red-500]="t.variant === 'error'"
+      role="status"
+    >
+      <div class="flex-1">
+        <p class="font-medium text-slate-900">{{ t.title }}</p>
+        @if (t.body) {
+          <p class="text-sm text-slate-600 mt-1">{{ t.body }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="text-slate-400 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded"
+        (click)="onDismiss(t.id)"
+        aria-label="Dismiss notification"
+      >×</button>
+    </div>
+  }
+</div>

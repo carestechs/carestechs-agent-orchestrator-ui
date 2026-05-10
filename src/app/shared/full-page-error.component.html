@@ -1,0 +1,24 @@
+<div class="min-h-[60vh] flex flex-col items-center justify-center text-center px-6 py-12 max-w-md mx-auto">
+  <div class="rounded-full bg-red-100 p-3 mb-4" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-600">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  </div>
+  <h1 class="text-xl font-semibold text-slate-900 mb-2">{{ title() }}</h1>
+  @if (detail()) {
+    <p class="text-slate-600 mb-2">{{ detail() }}</p>
+  }
+  @if (code()) {
+    <p class="text-xs text-slate-400 font-mono">{{ code() }}</p>
+  }
+  @if (retry()) {
+    <button
+      type="button"
+      class="mt-6 rounded-lg bg-sky-500 hover:bg-sky-600 active:translate-y-px text-white px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+      (click)="invokeRetry()"
+    >Retry</button>
+  }
+</div>
