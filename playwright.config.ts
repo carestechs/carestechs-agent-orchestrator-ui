@@ -4,7 +4,6 @@ import { defineConfig } from '@playwright/test';
 
 const E2E_PASSPHRASE = 'e2e-passphrase';
 const E2E_API_KEY = 'test-key-do-not-leak';
-const E2E_SESSION_SECRET = 'e2e-session-secret-do-not-use-in-prod';
 const E2E_UPSTREAM_BASE_URL = 'http://127.0.0.1:4100';
 
 // FEAT-003 T-031: materialize Angular env files at config-eval time, before
@@ -36,20 +35,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: [
-    {
-      command: 'node --import tsx bff/src/server.ts',
-      port: 4000,
-      reuseExistingServer: !process.env['CI'],
-      timeout: 60_000,
-      env: {
-        NODE_ENV: 'test',
-        PORT: '4000',
-        ORCHESTRATOR_BASE_URL: E2E_UPSTREAM_BASE_URL,
-        ORCHESTRATOR_API_KEY: E2E_API_KEY,
-        ORCHESTRATOR_OPERATOR_PASSPHRASE: E2E_PASSPHRASE,
-        SESSION_SECRET: E2E_SESSION_SECRET,
-      },
-    },
+    // BFF webServer entry was retired with FEAT-003 T-032. The SPA hits the
+    // orchestrator (here, the in-process e2e mock on 127.0.0.1:4100) directly.
     {
       command: 'npm run start',
       port: 4200,

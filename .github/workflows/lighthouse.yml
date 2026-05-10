@@ -13,10 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      ORCHESTRATOR_API_KEY: test-key-do-not-leak
-      ORCHESTRATOR_OPERATOR_PASSPHRASE: e2e-passphrase
-      ORCHESTRATOR_BASE_URL: http://127.0.0.1:4100
-      SESSION_SECRET: ci-session-secret
       NODE_ENV: test
       E2E_PASSPHRASE: e2e-passphrase
     steps:
@@ -31,9 +27,8 @@ jobs:
           chrome-version: stable
       - run: npm ci
 
-      # FEAT-003 T-029 — Angular fileReplacements requires both env files to
-      # exist at build time even if no source code imports them yet. Real
-      # values are gitignored; CI materializes test placeholders here.
+      # FEAT-003 T-029 — Angular fileReplacements requires both env files at
+      # build time. Real values are gitignored; CI uses test placeholders.
       - name: Materialize SPA env files
         run: |
           cat > src/environments/environment.ts <<'EOF'
@@ -47,15 +42,12 @@ jobs:
           EOF
           cp src/environments/environment.ts src/environments/environment.prod.ts
 
-      - name: Build SPA + BFF (postbuild scans for secret leaks)
+      - name: Build SPA (postbuild scans for forbidden values)
         run: npm run build
 
-      # Boot all three services and wait for readiness in a single step.
-      # GitHub Actions runs each step in a fresh shell, so backgrounded
-      # processes from a previous step are orphaned and may be reaped before
-      # the next step's `wait-on` ever sees them. Keeping boot + wait in one
-      # shell, with nohup + disown so the processes outlive any sub-shell,
-      # is the reliable pattern.
+      # After FEAT-003 T-032 there is no BFF. The stack is just the upstream
+      # mock (so the SPA's runtime fetches resolve) and the static server for
+      # the production build.
       - name: Boot stack and wait for readiness
         run: |
           mkdir -p /tmp/lhci-logs
@@ -63,22 +55,12 @@ jobs:
           echo $! > /tmp/upstream.pid
           disown || true
 
-          nohup node --import tsx bff/src/server.ts > /tmp/lhci-logs/bff.log 2>&1 &
-          echo $! > /tmp/bff.pid
-          disown || true
-
-          # Serve the production build (chunks pre-built — no per-route lazy
-          # compilation) via a tiny custom server that does both SPA fallback
-          # and BFF proxy. ng serve in dev mode triggers per-route compile on
-          # first hit; the run-detail chunk took longer than Lighthouse's 30s
-          # FCP wait on cold CI, causing NO_FCP.
           nohup npm run lhci:serve > /tmp/lhci-logs/spa.log 2>&1 &
           echo $! > /tmp/spa.pid
           disown || true
 
           npx --yes wait-on \
             http-get://127.0.0.1:4100/v1/agents \
-            http-get://localhost:4000/auth/me \
             http-get://localhost:4200 \
             --timeout 60000 \
             --interval 500
@@ -93,8 +75,6 @@ jobs:
         run: |
           echo '--- upstream-mock log ---'
           tail -n 200 /tmp/lhci-logs/upstream.log || true
-          echo '--- BFF log ---'
-          tail -n 200 /tmp/lhci-logs/bff.log || true
           echo '--- SPA static-server log ---'
           tail -n 200 /tmp/lhci-logs/spa.log || true
 
@@ -107,6 +87,6 @@ jobs:
       - name: Stop background services
         if: always()
         run: |
-          for f in /tmp/upstream.pid /tmp/bff.pid /tmp/spa.pid; do
+          for f in /tmp/upstream.pid /tmp/spa.pid; do
             if [ -f "$f" ]; then kill "$(cat "$f")" 2>/dev/null || true; fi
           done
