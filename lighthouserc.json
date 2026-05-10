@@ -16,13 +16,8 @@
       "puppeteerLaunchOptions": { "args": ["--no-sandbox"] }
     },
     "assert": {
-      "preset": "lighthouse:recommended",
       "assertions": {
-        "categories:accessibility": ["error", { "minScore": 0.95 }],
-        "categories:performance": "off",
-        "categories:best-practices": "off",
-        "categories:seo": "off",
-        "categories:pwa": "off"
+        "categories:accessibility": ["error", { "minScore": 0.95 }]
       }
     },
     "upload": {

@@ -44,32 +44,46 @@ async function proxy(req, res, target) {
   const upstream = new URL(req.url, target);
   const headers = { ...req.headers };
   delete headers.host;
-  const init = { method: req.method, headers };
+  const controller = new AbortController();
+  const init = { method: req.method, headers, signal: controller.signal };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     init.body = Buffer.concat(chunks);
   }
+  // If the client disconnects, stop reading from upstream and let the proxy
+  // exit cleanly. Without this, an aborted trace stream throws inside the
+  // reader loop and crashes the whole server (ERR_HTTP_HEADERS_SENT).
+  req.on('close', () => controller.abort());
   let upstreamRes;
   try {
     upstreamRes = await fetch(upstream, init);
   } catch (err) {
-    res.writeHead(502, { 'content-type': 'text/plain' });
-    res.end(`Upstream unreachable: ${String(err)}`);
+    if (!res.headersSent) {
+      res.writeHead(502, { 'content-type': 'text/plain' });
+      res.end(`Upstream unreachable: ${String(err)}`);
+    }
     return;
   }
   const respHeaders = {};
   upstreamRes.headers.forEach((v, k) => { respHeaders[k] = v; });
-  res.writeHead(upstreamRes.status, respHeaders);
+  if (!res.headersSent) res.writeHead(upstreamRes.status, respHeaders);
   if (upstreamRes.body) {
     const reader = upstreamRes.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(Buffer.from(value));
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (res.writableEnded || res.destroyed) break;
+        res.write(Buffer.from(value));
+      }
+    } catch {
+      // Aborted upstream or client closed — fall through to end().
+    } finally {
+      try { await reader.cancel(); } catch { /* */ }
     }
   }
-  res.end();
+  if (!res.writableEnded) res.end();
 }
 
 const server = createServer(async (req, res) => {
@@ -81,7 +95,12 @@ const server = createServer(async (req, res) => {
     }
     const safe = normalize(url.pathname).replace(/^\/+/, '');
     const direct = await tryFile(join(ROOT, safe));
-    const filePath = direct ?? (await tryFile(join(ROOT, 'index.html')));
+    // SPA fallback: only return index.html for paths that look like routes
+    // (no file extension). Returning HTML for an asset request like
+    // /runs/run-e2e-001/chunk-X.js triggers Chrome's strict MIME check and
+    // kills the bootstrap — script tag refuses to execute, no FCP.
+    const looksLikeAsset = /\.[a-z0-9]+$/i.test(url.pathname);
+    const filePath = direct ?? (looksLikeAsset ? null : await tryFile(join(ROOT, 'index.html')));
     if (!filePath) {
       res.writeHead(404, { 'content-type': 'text/plain' });
       res.end('Not found');
@@ -95,9 +114,19 @@ const server = createServer(async (req, res) => {
     });
     res.end(body);
   } catch (err) {
-    res.writeHead(500, { 'content-type': 'text/plain' });
-    res.end(`Server error: ${String(err)}`);
+    // Don't try to write headers if proxy already started streaming — that
+    // crashes the server with ERR_HTTP_HEADERS_SENT.
+    if (!res.headersSent) {
+      res.writeHead(500, { 'content-type': 'text/plain' });
+      res.end(`Server error: ${String(err)}`);
+    } else if (!res.writableEnded) {
+      res.end();
+    }
   }
 });
+
+// Process-level guard: if anything still slips through, log instead of dying.
+process.on('uncaughtException', (err) => console.error('[spa] uncaught:', err));
+process.on('unhandledRejection', (err) => console.error('[spa] unhandled:', err));
 
 server.listen(PORT, () => console.log(`[spa] serving ${ROOT} on :${PORT}, /api & /auth → ${BFF}`));
