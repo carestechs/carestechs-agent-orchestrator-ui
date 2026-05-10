@@ -9,6 +9,11 @@
   } @else {
     <header class="flex items-center justify-between mb-6">
       <h1 class="font-[Poppins] text-slate-900 text-2xl font-semibold">Runs</h1>
+      <a
+        routerLink="/runs/new"
+        data-testid="start-run-cta-header"
+        class="inline-flex items-center gap-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 text-sm font-medium"
+      >Start a run</a>
     </header>
 
     <section class="flex flex-wrap gap-3 mb-4 items-center" aria-label="Filters">
@@ -47,7 +52,14 @@
         }
       </div>
     } @else if (sortedRuns().length === 0) {
-      <div class="text-center py-12 text-slate-500">No runs match this filter.</div>
+      <div class="text-center py-12">
+        <p class="text-slate-500">No runs match this filter.</p>
+        <a
+          routerLink="/runs/new"
+          data-testid="start-run-cta-empty"
+          class="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium"
+        >Start a run</a>
+      </div>
     } @else {
       <ul class="space-y-2" data-testid="runs-table">
         @for (run of sortedRuns(); track run.id) {

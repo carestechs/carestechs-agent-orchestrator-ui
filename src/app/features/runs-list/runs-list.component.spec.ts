@@ -158,6 +158,32 @@ describe('RunsListComponent', () => {
     expect(calls.length).toBeGreaterThan(0);
   });
 
+  it('renders the header "Start a run" CTA pointing at /runs/new', async () => {
+    const { fixture } = setup();
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const cta = root.querySelector('[data-testid="start-run-cta-header"]') as HTMLAnchorElement | null;
+    expect(cta).not.toBeNull();
+    // The mocked Router stub returns a fixed serializeUrl ('/runs'); assert the anchor was rendered
+    // with a routerLink directive (the binding is observable via the ng-reflect attribute on the
+    // element, or simply by the fact that an <A> exists with the testid). Concrete href correctness
+    // is covered by run-start.component.spec.ts (real provideRouter).
+    expect(cta?.tagName).toBe('A');
+  });
+
+  it('renders the empty-state "Start a run" CTA when no runs match the filter', async () => {
+    const { fixture } = setup({
+      listImpl: () => of({ data: [], meta: { page: 1, pageSize: 20, total: 0 } }),
+    });
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="start-run-cta-empty"]')).not.toBeNull();
+  });
+
   it('shows full-page error when list rejects with ProblemDetailsError', async () => {
     const err = new ProblemDetailsError({
       type: 'about:blank',

@@ -15,6 +15,12 @@ export const appRoutes: Routes = [
       import('./features/runs-list/runs-list.component').then((m) => m.RunsListComponent),
   },
   {
+    path: 'runs/new',
+    canMatch: [authGuard],
+    loadComponent: () =>
+      import('./features/run-start/run-start.component').then((m) => m.RunStartComponent),
+  },
+  {
     path: 'runs/:id',
     canMatch: [authGuard],
     loadComponent: () =>
