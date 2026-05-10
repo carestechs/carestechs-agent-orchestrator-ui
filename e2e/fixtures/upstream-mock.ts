@@ -183,7 +183,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
       return;
     }
 
-    if (method === 'POST' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}/signals/dispatch`) {
+    if (method === 'POST' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}/signals`) {
       const raw = await readBody(req);
       let body: { name?: string; taskId?: string } = {};
       try { body = raw ? JSON.parse(raw) : {}; } catch { /* fall through */ }
