@@ -15,8 +15,8 @@ Before generating specs, tasks, mockups, or implementation plans, you MUST follo
 
 ## Project Overview
 
-**Tech Stack:** Angular 17+ (standalone components, signals), TypeScript (strict), Tailwind CSS, plus a thin Node.js BFF proxy (Express or Fastify) that holds the orchestrator API key and forwards calls.
-**Repo Type:** Single Angular SPA + colocated BFF proxy (single repo, two deployable processes).
+**Tech Stack:** Angular 17+ (standalone components, signals), TypeScript (strict), Tailwind CSS. The SPA calls the orchestrator directly; deployment is gated by network position (see `docs/ARCHITECTURE.md` § "Interim security posture"). Real per-operator authentication is deferred to FEAT-004.
+**Repo Type:** Single Angular SPA. One deployable process.
 
 The UI is a consumer of `carestechs-agent-orchestrator`. The orchestrator is headless; this app gives an operator visibility into runs and a button to deliver the human-pause signal. See `docs/stakeholder-definition.md` for scope.
 
@@ -45,20 +45,14 @@ Both `environment.ts` and `environment.prod.ts` are gitignored. Never `git add -
 # Install
 npm install
 
-# Development — runs Angular dev server + BFF proxy concurrently
-npm run dev
+# Development — single process, ng serve only
+npm run dev           # ng serve on :4200
 
-# Angular SPA only
-npm run start         # ng serve on :4200, proxy.conf.json forwards /api → BFF
-
-# BFF proxy only
-npm run bff:dev       # nodemon on :4000, proxies /api/v1/* → orchestrator
-
-# Build
-npm run build         # ng build (production) + tsc on BFF
+# Build (production)
+npm run build         # ng build; postbuild scans for forbidden bundle values
 
 # Test
-npm test              # vitest (unit) — both SPA and BFF
+npm test              # vitest (unit)
 npm run e2e           # Playwright (smoke flows)
 
 # Lint / format
@@ -82,18 +76,13 @@ npm run format        # prettier --write
 │   │   ├── models/             # TS interfaces matching docs/data-model.md
 │   │   └── app.routes.ts       # Standalone-component lazy routes (loadComponent)
 │   ├── assets/
+│   ├── environments/           # environment.example.ts ships; .ts + .prod.ts are gitignored
 │   ├── styles.css              # Tailwind directives + global @apply only
 │   └── main.ts
-├── bff/                        # Backend-for-Frontend proxy (Node + Express/Fastify)
-│   ├── src/
-│   │   ├── routes/             # /api/v1/* forwarders, /auth/* (login/logout)
-│   │   ├── upstream/           # Orchestrator client, NDJSON pass-through
-│   │   ├── session/            # Cookie session middleware
-│   │   └── server.ts
-│   └── tsconfig.json
+├── e2e/                        # Playwright specs + in-process orchestrator mock
+├── scripts/                    # serve-spa.mjs (static + SPA fallback), check-no-secrets-in-bundle.sh, etc.
 ├── docs/                       # Project documentation (this framework)
-├── tailwind.config.js
-└── proxy.conf.json             # ng serve → BFF dev proxy
+└── tailwind.config.js
 ```
 
 ---
@@ -111,11 +100,11 @@ npm run format        # prettier --write
 - **Named exports only.** No default exports — except where Angular's `loadComponent` requires a `default export` from a route file; in that case the file's only purpose is to re-export the component as default.
 - **Functional composition over classes** for non-Angular-primitive utilities. Use plain functions in `core/` and `shared/`.
 
-### BFF (Node)
+### Operator Gate (SPA-side)
 
-- ESM, TypeScript strict, Fastify or Express — pick one and stay consistent.
-- **Never log the orchestrator API key.** It is read once from env (`ORCHESTRATOR_API_KEY`) and only attached to outgoing `Authorization` headers.
-- Session cookies are `httpOnly`, `sameSite=lax`, `secure` in production.
+- Login compares the typed value against `environment.operatorPassphrase` and writes `'true'` to `sessionStorage` under the key `ao.operator.unlocked`. The route guard reads the flag synchronously.
+- This is **not real authentication**. The orchestrator deployment is gated by network position; the SPA gate just keeps casual tab-takeover from being a free action. Real per-operator auth is FEAT-004.
+- The `Authorization: Bearer ${orchestratorApiKey}` header is attached by `ApiClient` and `TraceStreamService` on every request. The key value lives in `environment.*.ts` and ships in the bundle by design.
 
 ### Naming Conventions
 
@@ -136,29 +125,29 @@ npm run format        # prettier --write
 
 ### Patterns to Follow
 
-- **Wire shapes are camelCase end-to-end.** The orchestrator sends camelCase; keep it camelCase through the BFF and into TS interfaces. No snake↔camel conversion layer.
+- **Wire shapes are camelCase end-to-end.** The orchestrator sends camelCase; keep it camelCase into TS interfaces. No snake↔camel conversion layer.
 - **Idempotent retries.** All write endpoints are idempotent; let the user retry freely. Do not dedupe client-side.
 - **One service per resource** in `core/` (e.g. `RunsService`, `AgentsService`, `SignalsService`). Components consume services; services own HTTP.
-- **Trace consumption via `ReadableStream`.** Use `fetch` (not `HttpClient`) for `/runs/{id}/trace` so we can read the NDJSON stream line-by-line. Wrap the iterator into a signal-friendly source.
-- **Boundary types.** Every payload from the BFF is parsed into a typed interface defined in `src/app/models/`. Do not pass raw `any` JSON deeper than the service layer.
+- **Trace consumption via `ReadableStream`.** Use `fetch` (not `HttpClient`) for `/v1/runs/{id}/trace` so we can read the NDJSON stream line-by-line. Wrap the iterator into a signal-friendly source.
+- **Boundary types.** Every payload from the orchestrator is parsed into a typed interface defined in `src/app/models/`. Do not pass raw `any` JSON deeper than the service layer.
 
 ### Anti-Patterns to Avoid
 
 - **No NgModules.** Anywhere. Ever.
 - **No inline templates / no component CSS files.** Tailwind classes in the `.html` only.
 - **No `BehaviorSubject` / `ReplaySubject` for component state.** Use signals.
-- **Don't ship the API key to the browser.** It lives in BFF env only.
-- **Don't call the orchestrator directly from the browser.** No CORS is configured upstream; the BFF is the only client.
+- **`ORCHESTRATOR_API_KEY` ships in the browser by design.** This is acceptable only because the orchestrator deployment is network-gated. If that ever stops being true, this whole posture is broken — see `docs/ARCHITECTURE.md` § "Interim security posture" before assuming otherwise.
 - **No WebSockets / SSE for the trace.** It is plain NDJSON over HTTP.
 
 ---
 
 ## Error Handling
 
-- **RFC 7807 problem-details** come back from the orchestrator with `Content-Type: application/problem+json` and a stable `code`. The BFF passes them through unchanged. The UI parses them into a typed `ProblemDetails` interface and surfaces `code` + `title` to the user.
+- **RFC 7807 problem-details** come back from the orchestrator with `Content-Type: application/problem+json` and a stable `code`. The SPA parses them into a typed `ProblemDetails` interface and surfaces `code` + `title` to the user.
 - **`409` on signal submit** means the run is already terminal. Show a toast, refresh the run, do not retry.
 - **`404` on signal submit** means the `taskId` isn't in the run's memory. Show the field-level error and prompt the user to re-pick from the awaiting dispatch.
-- **Network errors / BFF down** → full-page error state with a retry button. Never spin forever.
+- **`401` from the orchestrator** (rotated/revoked API key) triggers the auth-expiry channel, which locks the operator gate and redirects to `/login?reason=expired`.
+- **Network errors / orchestrator unreachable** → full-page error state with a retry button. Never spin forever.
 - Use a single global error toast service for transient failures; per-form inline errors for validation.
 
 ---
@@ -167,7 +156,7 @@ npm run format        # prettier --write
 
 - **Test location:** Co-located. `runs-list.component.spec.ts` next to `runs-list.component.ts`.
 - **Naming:** `*.spec.ts`.
-- **Framework:** Vitest (unit) for both SPA and BFF; Playwright for E2E smoke flows.
+- **Framework:** Vitest (unit); Playwright for E2E smoke flows. E2E uses the in-process orchestrator mock at `e2e/fixtures/upstream-mock.ts`.
 - **Priority:** Unit tests for services (HTTP shapes, error mapping, NDJSON parsing). Component tests focus on signal-driven behavior, not Tailwind class assertions. One Playwright smoke per critical flow: list → detail → signal, and start-run.
 
 ---
@@ -234,7 +223,7 @@ This project includes a bundled AI framework (`.ai-framework/`) with prompt temp
 | Code Change | Document to Update |
 |-------------|-------------------|
 | New entity / field on the wire | `docs/data-model.md` |
-| New / changed BFF or orchestrator endpoint | `docs/api-spec.md` |
+| New / changed orchestrator endpoint consumed by the SPA | `docs/api-spec.md` |
 | New / changed screen or component | `docs/ui-specification.md` |
 | New service or module | `docs/ARCHITECTURE.md` |
 | New convention | `CLAUDE.md` |
@@ -250,3 +239,11 @@ This project includes a bundled AI framework (`.ai-framework/`) with prompt temp
 - **`carestechs-ui-design`** — DDRs and the `modern-minimal` profile that governs design tokens and component styling.
 - **`carestechs-agent-orchestrator`** — the upstream service. Its `docs/api-spec.md`, `docs/data-model.md`, and `docs/stakeholder-definition.md` are authoritative when contracts diverge from this UI's snapshot.
 - **`orchestrator-ui-starter.md`** (in DevTools root) — the curated UI-builder brief; this project's docs were seeded from it.
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly with a Bearer header read from `environment.*.ts`. Operator gate is now SPA-side (`sessionStorage`). API key lives in the bundle by design; security relies on network-gated orchestrator deployment. |

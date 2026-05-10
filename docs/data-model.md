@@ -14,7 +14,7 @@ All interfaces live in `src/app/models/`.
 
 ### `RunSummary`
 
-A row in the runs list. From `GET /api/v1/runs`.
+A row in the runs list. From `GET /v1/runs`.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -58,7 +58,7 @@ export interface RunSummary {
 
 ### `RunDetail`
 
-From `GET /api/v1/runs/{runId}`. Superset of `RunSummary`.
+From `GET /v1/runs/{runId}`. Superset of `RunSummary`.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -145,7 +145,7 @@ The UI keys most of its rendering on `executor_call` records:
 
 ### `Signal`
 
-The single write payload. Sent via `POST /api/v1/runs/{runId}/signals`.
+The single write payload. Sent via `POST /v1/runs/{runId}/signals`.
 
 ```ts
 export type SignalName = 'implementation-complete';
@@ -176,7 +176,7 @@ export interface SignalReceipt {
 
 ### `Agent`
 
-From `GET /api/v1/agents`. Used to populate the start-run form.
+From `GET /v1/agents`. Used to populate the start-run form.
 
 ```ts
 export interface AgentNode {
@@ -275,3 +275,4 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 |------|--------|
 | 2026-05-09 | Initial data model derived from `orchestrator-ui-starter.md` §3 endpoints and signal schema. |
 | 2026-05-09 | FEAT-001 audit — added optional `ProblemDetails.errors: Record<string, string[]>` for 422 `invalid-signal-payload` per-field messages (RFC 7807 extension member). Module-ownership table now reflects flat `src/app/models/<name>.ts` layout (no `.model.ts` suffix). |
+| 2026-05-10 | FEAT-003 — endpoint paths in entity descriptions reframed from `/api/v1/*` to `/v1/*` (no shape change). The SPA now calls the orchestrator directly; see `docs/api-spec.md` for the new auth and CORS framing. |
