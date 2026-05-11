@@ -344,7 +344,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
 
     // Started runs: GET detail.
     {
-      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)$/);
+      const m = url.pathname.match(/^\/api\/v1\/runs\/(run-e2e-start-\d+)$/);
       if (method === 'GET' && m) {
         const run = state.startedRuns.get(m[1]!);
         if (!run) {
@@ -359,7 +359,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
 
     // Started runs: NDJSON trace.
     {
-      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)\/trace$/);
+      const m = url.pathname.match(/^\/api\/v1\/runs\/(run-e2e-start-\d+)\/trace$/);
       if (method === 'GET' && m) {
         const run = state.startedRuns.get(m[1]!);
         if (!run) {
