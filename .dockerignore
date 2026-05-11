@@ -1,0 +1,19 @@
+node_modules
+dist
+coverage
+.lighthouseci
+e2e/test-results
+playwright-report
+.angular
+.git
+.github
+.vscode
+.claude
+# Real env files are gitignored AND dockerignored. The only path into the
+# image is via --build-arg (see Dockerfile).
+src/environments/environment.ts
+src/environments/environment.prod.ts
+*.log
+mockups
+plans
+test-results
