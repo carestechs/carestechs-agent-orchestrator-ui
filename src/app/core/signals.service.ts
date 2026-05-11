@@ -18,7 +18,7 @@ export class SignalsService {
   // we surface that flag so the run-detail screen can pick the right toast.
   submit(runId: string, body: SignalRequest): Observable<SignalSubmitResult> {
     return this.api
-      .post<SignalReceipt>(`/v1/runs/${encodeURIComponent(runId)}/signals`, body)
+      .post<SignalReceipt>(`/api/v1/runs/${encodeURIComponent(runId)}/signals`, body)
       .pipe(
         map(({ data, meta }) => ({
           data,

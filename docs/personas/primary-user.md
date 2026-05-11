@@ -13,7 +13,7 @@ The primary user is a software engineer or technical operator working alongside 
 ## Core Problem
 
 - **The Problem:** A lifecycle run pauses at `request_implementation` for a specific task. The operator must (a) figure out which task is waiting, (b) collect the implementation evidence (commit SHA, PR URL, optional diff), and (c) post a signal so the run advances. Today they do this by reading NDJSON traces in a terminal and crafting `curl` calls.
-- **Current Workaround:** `curl` against `/v1/runs/{id}/trace` piped through `jq`, then a hand-typed `curl -X POST .../signals` with a JSON body.
+- **Current Workaround:** `curl` against `/api/v1/runs/{id}/trace` piped through `jq`, then a hand-typed `curl -X POST .../signals` with a JSON body.
 - **Why That Fails:** Reading raw NDJSON to find which task is awaiting input is slow and error-prone. Hand-crafting signal payloads invites typos in `taskId`, which return `404` and cost a round trip to debug.
 - **Consequences of Inaction:** Runs sit paused longer than necessary. Throughput of the lifecycle drops. Operators avoid using the orchestrator for non-trivial briefs because the babysitting cost is too high.
 

@@ -29,8 +29,8 @@ afterEach(() => {
 describe('ApiClient', () => {
   it('unwraps a 200 envelope into { data, meta }', () => {
     let result: unknown;
-    api.get<{ id: string }[]>('/v1/runs').subscribe((r) => (result = r));
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    api.get<{ id: string }[]>('/api/v1/runs').subscribe((r) => (result = r));
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     expect(req.request.method).toBe('GET');
     // After FEAT-003: no cookies, Authorization is attached on the SPA side.
     expect(req.request.withCredentials).toBe(false);
@@ -43,8 +43,8 @@ describe('ApiClient', () => {
   });
 
   it('serializes query params and skips undefined/null', () => {
-    api.get('/v1/runs', { status: 'paused', agentRef: undefined, page: 2 }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === `${BASE}/v1/runs`);
+    api.get('/api/v1/runs', { status: 'paused', agentRef: undefined, page: 2 }).subscribe();
+    const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     expect(req.request.params.get('status')).toBe('paused');
     expect(req.request.params.has('agentRef')).toBe(false);
     expect(req.request.params.get('page')).toBe('2');
@@ -52,8 +52,8 @@ describe('ApiClient', () => {
   });
 
   it('attaches Authorization: Bearer on POST as well', () => {
-    api.post('/v1/runs', { agentRef: 'a', intake: {} }).subscribe();
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    api.post('/api/v1/runs', { agentRef: 'a', intake: {} }).subscribe();
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get('Authorization')).toBe(BEARER);
     expect(req.request.withCredentials).toBe(false);
@@ -63,9 +63,9 @@ describe('ApiClient', () => {
   it('maps problem+json 409 to ProblemDetailsError with code intact', () => {
     let caught: unknown;
     api
-      .post('/v1/runs/r1/signals', { name: 'implementation-complete', taskId: 'T-1', payload: {} })
+      .post('/api/v1/runs/r1/signals', { name: 'implementation-complete', taskId: 'T-1', payload: {} })
       .subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs/r1/signals`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs/r1/signals`);
     req.flush(
       {
         type: 'about:blank',
@@ -87,8 +87,8 @@ describe('ApiClient', () => {
 
   it('falls back to code "unknown" on a malformed body', () => {
     let caught: unknown;
-    api.get('/v1/runs').subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    api.get('/api/v1/runs').subscribe({ error: (e) => (caught = e) });
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     req.flush('boom', { status: 500, statusText: 'Internal Server Error' });
     expect(caught).toBeInstanceOf(ProblemDetailsError);
     const e = caught as ProblemDetailsError;
@@ -98,8 +98,8 @@ describe('ApiClient', () => {
 
   it('emits authExpired on any 401 (orchestrator key rotation/revocation)', () => {
     const before = authExpired();
-    api.get('/v1/runs').subscribe({ error: () => undefined });
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    api.get('/api/v1/runs').subscribe({ error: () => undefined });
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     req.flush(
       { type: 'about:blank', title: 'Unauthenticated', status: 401, code: 'unauthenticated' },
       {

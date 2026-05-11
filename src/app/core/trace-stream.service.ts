@@ -59,7 +59,7 @@ export class TraceStreamService {
     const since = this.latestOccurredAt();
     if (since) params.set('since', since);
     for (const kind of this.currentKinds) params.append('kind', kind);
-    return `${environment.orchestratorBaseUrl}/v1/runs/${encodeURIComponent(this.currentRunId ?? '')}/trace?${params.toString()}`;
+    return `${environment.orchestratorBaseUrl}/api/v1/runs/${encodeURIComponent(this.currentRunId ?? '')}/trace?${params.toString()}`;
   }
 
   private async run(): Promise<void> {

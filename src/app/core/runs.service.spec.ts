@@ -41,9 +41,9 @@ describe('clampPageSize', () => {
 });
 
 describe('RunsService.list', () => {
-  it('issues GET /v1/runs with the documented query params', () => {
+  it('issues GET /api/v1/runs with the documented query params', () => {
     runs.list({ status: 'paused', agentRef: 'lifecycle-agent@0.3.0', page: 2, pageSize: 50 }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === `${BASE}/v1/runs`);
+    const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     expect(req.request.method).toBe('GET');
     expect(req.request.params.get('status')).toBe('paused');
     expect(req.request.params.get('agentRef')).toBe('lifecycle-agent@0.3.0');
@@ -54,7 +54,7 @@ describe('RunsService.list', () => {
 
   it('omits status and agentRef when not given', () => {
     runs.list({}).subscribe();
-    const req = httpMock.expectOne((r) => r.url === `${BASE}/v1/runs`);
+    const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     expect(req.request.params.has('status')).toBe(false);
     expect(req.request.params.has('agentRef')).toBe(false);
     expect(req.request.params.get('pageSize')).toBe(String(DEFAULT_PAGE_SIZE));
@@ -63,7 +63,7 @@ describe('RunsService.list', () => {
 
   it('clamps oversized pageSize to 100', () => {
     runs.list({ pageSize: 999 }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === `${BASE}/v1/runs`);
+    const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     expect(req.request.params.get('pageSize')).toBe(String(MAX_PAGE_SIZE));
     req.flush({ data: [], meta: { page: 1, pageSize: MAX_PAGE_SIZE, total: 0 } });
   });
@@ -71,7 +71,7 @@ describe('RunsService.list', () => {
   it('decodes the response into RunSummary[] + Pagination meta', () => {
     let result: unknown;
     runs.list().subscribe((r) => (result = r));
-    const req = httpMock.expectOne((r) => r.url === `${BASE}/v1/runs`);
+    const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     req.flush({
       data: [
         {
@@ -98,7 +98,7 @@ describe('RunsService.get', () => {
   it('encodes the runId and returns the unwrapped RunDetail', () => {
     let detail: unknown;
     runs.get('r/1').subscribe((d) => (detail = d));
-    const req = httpMock.expectOne(`${BASE}/v1/runs/r%2F1`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs/r%2F1`);
     expect(req.request.method).toBe('GET');
     req.flush({
       data: {
@@ -110,7 +110,7 @@ describe('RunsService.get', () => {
         endedAt: null,
         lastStepNumber: null,
         terminationReason: null,
-        traceUri: '/v1/runs/r%2F1/trace',
+        traceUri: '/api/v1/runs/r%2F1/trace',
         budget: { maxSteps: 200 },
         currentNode: 'load_work_item',
       },
@@ -121,10 +121,10 @@ describe('RunsService.get', () => {
 });
 
 describe('RunsService.cancel', () => {
-  it('POSTs to /v1/runs/:id/cancel and returns the cancelled RunSummary', () => {
+  it('POSTs to /api/v1/runs/:id/cancel and returns the cancelled RunSummary', () => {
     let result: unknown;
     runs.cancel('r1').subscribe((r) => (result = r));
-    const req = httpMock.expectOne(`${BASE}/v1/runs/r1/cancel`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs/r1/cancel`);
     expect(req.request.method).toBe('POST');
     req.flush({
       data: {
@@ -145,7 +145,7 @@ describe('RunsService.cancel', () => {
   it('propagates 409 run-already-terminal as ProblemDetailsError without retry', () => {
     let caught: unknown;
     runs.cancel('r1').subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs/r1/cancel`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs/r1/cancel`);
     req.flush(
       { type: 'about:blank', title: 'Run already terminal', status: 409, code: 'run-already-terminal' },
       { status: 409, statusText: 'Conflict', headers: { 'content-type': 'application/problem+json' } },
@@ -171,10 +171,10 @@ describe('RunsService.startRun', () => {
     terminationReason: null,
   };
 
-  it('POSTs the request body to /v1/runs and unwraps data to a RunSummary', () => {
+  it('POSTs the request body to /api/v1/runs and unwraps data to a RunSummary', () => {
     let result: unknown;
     runs.startRun(sampleReq).subscribe((r) => (result = r));
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(sampleReq);
     req.flush({ data: sampleRun, meta: null });
@@ -183,7 +183,7 @@ describe('RunsService.startRun', () => {
 
   it('forwards an optional budget.maxSteps in the request body', () => {
     runs.startRun({ ...sampleReq, budget: { maxSteps: 200 } }).subscribe();
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     expect(req.request.body).toEqual({ ...sampleReq, budget: { maxSteps: 200 } });
     req.flush({ data: sampleRun, meta: null });
   });
@@ -191,7 +191,7 @@ describe('RunsService.startRun', () => {
   it('propagates 400 invalid-intake as ProblemDetailsError', () => {
     let caught: unknown;
     runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     req.flush(
       { type: 'about:blank', title: 'Intake JSON failed validation', status: 400, code: 'invalid-intake' },
       { status: 400, statusText: 'Bad Request', headers: { 'content-type': 'application/problem+json' } },
@@ -203,7 +203,7 @@ describe('RunsService.startRun', () => {
   it('propagates 404 agent-not-found as ProblemDetailsError', () => {
     let caught: unknown;
     runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     req.flush(
       { type: 'about:blank', title: 'Agent not found', status: 404, code: 'agent-not-found' },
       { status: 404, statusText: 'Not Found', headers: { 'content-type': 'application/problem+json' } },
@@ -215,7 +215,7 @@ describe('RunsService.startRun', () => {
   it('propagates 502 upstream-unavailable as ProblemDetailsError', () => {
     let caught: unknown;
     runs.startRun(sampleReq).subscribe({ error: (e) => (caught = e) });
-    const req = httpMock.expectOne(`${BASE}/v1/runs`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/runs`);
     req.flush(
       { type: 'about:blank', title: 'Orchestrator unavailable', status: 502, code: 'upstream-unavailable' },
       { status: 502, statusText: 'Bad Gateway', headers: { 'content-type': 'application/problem+json' } },
