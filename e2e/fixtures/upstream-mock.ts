@@ -233,6 +233,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
         const seq: Array<[number, Record<string, unknown>]> = [
           [50, { kind: 'step', data: { id: 'rec-step-1', stepNumber: 1, nodeName: 'plan', status: 'dispatched', nodeInputs: { taskId: SEEDED_TASK_ID }, nodeResult: null, error: null, dispatchedAt: nowIso(), completedAt: null } }],
           [120, { kind: 'policy_call', data: { id: 'rec-policy-1', stepId: 'rec-step-1', provider: 'mock', model: 'mock-llm', selectedTool: 'none', toolArguments: {}, availableTools: [], inputTokens: 0, outputTokens: 0, latencyMs: 1, createdAt: nowIso() } }],
+          [200, { kind: 'webhook_event', data: { id: 'rec-webhook-1', eventType: 'node_started', engineRunId: 'engine-1', payload: { taskId: SEEDED_TASK_ID }, signatureOk: true, source: 'engine', receivedAt: nowIso(), processedAt: nowIso() } }],
         ];
         for (const [delay, record] of seq) {
           const t = setTimeout(() => emit(state, record), delay);
