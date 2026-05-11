@@ -34,7 +34,7 @@ test.describe('cancel run', () => {
     // Trigger one cancel directly against the upstream mock (the SPA hits
     // the orchestrator directly after FEAT-003). This leaves the run in
     // `cancelled` state for the UI assertion below.
-    await request.post('http://127.0.0.1:4100/v1/runs/run-e2e-001/cancel', {
+    await request.post('http://127.0.0.1:4100/api/v1/runs/run-e2e-001/cancel', {
       headers: { Authorization: 'Bearer test-key-do-not-leak' },
       data: {},
     });

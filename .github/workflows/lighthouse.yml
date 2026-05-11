@@ -60,7 +60,7 @@ jobs:
           disown || true
 
           npx --yes wait-on \
-            http-get://127.0.0.1:4100/v1/agents \
+            http-get://127.0.0.1:4100/api/v1/agents \
             http-get://localhost:4200 \
             --timeout 60000 \
             --interval 500

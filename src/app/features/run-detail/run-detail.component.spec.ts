@@ -22,7 +22,7 @@ const sampleDetail = (status: RunDetail['status'] = 'paused'): RunDetail => ({
   endedAt: null,
   lastStepNumber: 2,
   terminationReason: null,
-  traceUri: '/v1/runs/run-1/trace',
+  traceUri: '/api/v1/runs/run-1/trace',
   budget: { maxSteps: 100 },
   currentNode: 'plan',
 });

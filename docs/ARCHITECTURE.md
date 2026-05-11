@@ -68,19 +68,19 @@ No database. The SPA is stateless beyond a per-tab `sessionStorage` gate flag.
 
 **Orchestrator (external)**
 - See `carestechs-agent-orchestrator/docs/ARCHITECTURE.md` and `docs/api-spec.md`. Contract authority lives there.
-- Must allow the SPA's origin in CORS and include `authorization, content-type` in `Access-Control-Allow-Headers`. Must allow `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /v1/runs/:id/trace`.
+- Must allow the SPA's origin in CORS and include `authorization, content-type` in `Access-Control-Allow-Headers`. Must allow `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /api/v1/runs/:id/trace`.
 
 ## Data Flow
 
 ### Read flow (runs list)
 
-1. Browser → `GET ${orchestratorBaseUrl}/v1/runs?status=paused&page=1&pageSize=20` with `Authorization: Bearer ${orchestratorApiKey}`.
+1. Browser → `GET ${orchestratorBaseUrl}/api/v1/runs?status=paused&page=1&pageSize=20` with `Authorization: Bearer ${orchestratorApiKey}`.
 2. Orchestrator returns `{ data: [...], meta: { page, pageSize, total } }`.
 3. Angular `RunsService` parses into `RunSummary[]`, exposes via `signal()` to `RunsListComponent`.
 
 ### Trace stream flow
 
-1. Browser opens `fetch(${orchestratorBaseUrl}/v1/runs/:id/trace?follow=true, { headers: { Authorization } })`.
+1. Browser opens `fetch(${orchestratorBaseUrl}/api/v1/runs/:id/trace?follow=true, { headers: { Authorization } })`.
 2. Orchestrator streams NDJSON; the response is NOT buffered by any reverse proxy in front of it (`X-Accel-Buffering: no` if nginx).
 3. SPA consumes via `ReadableStream` reader, splits on `\n`, parses each line as a `TraceRecord`, appends to a signal.
 4. UI groups records by `stepNumber`, renders a vertical timeline.
@@ -89,7 +89,7 @@ No database. The SPA is stateless beyond a per-tab `sessionStorage` gate flag.
 
 1. User opens a paused run; UI inspects the trace for the last `executor_call` with `state=dispatched` and `mode=human`. Pre-fills `taskId` from its `intake`.
 2. User fills `commitSha`, `prUrl`, optional `diff` and `implementationNotes`.
-3. Browser → `POST ${orchestratorBaseUrl}/v1/runs/:id/signals` with body `{ name: 'implementation-complete', taskId, payload }`.
+3. Browser → `POST ${orchestratorBaseUrl}/api/v1/runs/:id/signals` with body `{ name: 'implementation-complete', taskId, payload }`.
 4. Orchestrator returns `202` with `meta.alreadyReceived` if duplicate.
 5. SPA shows success toast, keeps the trace stream open to watch the run advance.
 
@@ -153,3 +153,4 @@ The SPA ships as a single nginx-based container.
 | 2026-05-10 | FEAT-002 — `features/run-start/` activated (route + form + submit). `RunsService.startRun` extends the existing service. Lighthouse a11y CI gate now also covers `/runs/new` (≥ 0.95). |
 | 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly with a Bearer header. Component Roles, Data Flow, and Security sections rewritten. New **Interim security posture** subsection names the network-gating assumption explicitly. Bundle-leak gate inverted (API key and passphrase now expected in the bundle; framework hook preserved). E2E secret-capture assertions inverted to match. |
 | 2026-05-11 | FEAT-005 — Containerized deployment landed. New **Deployment** subsection names the multi-stage build, the loopback bind (as part of the network-gating story), the build-args-in-layer-history caveat, the starter CSP, and the liveness/readiness split (`scripts/smoke-prod.sh` is the readiness probe; `scripts/check-orchestrator-cors.sh` is the CORS diagnostic). |
+| 2026-05-11 | BUG-001 — Data Flow examples reframed from `/v1/*` to `/api/v1/*` to match the real orchestrator prefix. The bare `/v1/*` paths used since FEAT-003 never existed upstream; verified against the orchestrator's OpenAPI. |

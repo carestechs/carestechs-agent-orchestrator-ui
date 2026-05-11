@@ -29,7 +29,7 @@ export class RunsService {
     if (filters.status) params['status'] = filters.status;
     if (filters.agentRef) params['agentRef'] = filters.agentRef;
 
-    return this.api.get<RunSummary[]>('/v1/runs', params).pipe(
+    return this.api.get<RunSummary[]>('/api/v1/runs', params).pipe(
       map(({ data, meta }) => ({
         data,
         meta: isPagination(meta) ? meta : { page: 1, pageSize: clampPageSize(filters.pageSize), total: data.length },
@@ -39,7 +39,7 @@ export class RunsService {
 
   get(runId: string): Observable<RunDetail> {
     return this.api
-      .get<RunDetail>(`/v1/runs/${encodeURIComponent(runId)}`)
+      .get<RunDetail>(`/api/v1/runs/${encodeURIComponent(runId)}`)
       .pipe(map(({ data }) => data));
   }
 
@@ -48,16 +48,16 @@ export class RunsService {
   // does not retry.
   cancel(runId: string): Observable<RunSummary> {
     return this.api
-      .post<RunSummary>(`/v1/runs/${encodeURIComponent(runId)}/cancel`, {})
+      .post<RunSummary>(`/api/v1/runs/${encodeURIComponent(runId)}/cancel`, {})
       .pipe(map(({ data }) => data));
   }
 
-  // POST /v1/runs — orchestrator returns 202 with the new RunSummary.
+  // POST /api/v1/runs — orchestrator returns 202 with the new RunSummary.
   // Errors flow as ProblemDetailsError via ApiClient (400 invalid-intake,
   // 404 agent-not-found, 502 upstream-unavailable). Caller maps them to
   // the correct UI surface (inline / page-level).
   startRun(req: StartRunRequest): Observable<RunSummary> {
-    return this.api.post<RunSummary>('/v1/runs', req).pipe(map(({ data }) => data));
+    return this.api.post<RunSummary>('/api/v1/runs', req).pipe(map(({ data }) => data));
   }
 }
 

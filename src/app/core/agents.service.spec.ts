@@ -24,10 +24,10 @@ afterEach(() => {
 });
 
 describe('AgentsService.list', () => {
-  it('issues GET /v1/agents and decodes the Agent[] body', () => {
+  it('issues GET /api/v1/agents and decodes the Agent[] body', () => {
     let result: unknown;
     agents.list().subscribe((a) => (result = a));
-    const req = httpMock.expectOne(`${BASE}/v1/agents`);
+    const req = httpMock.expectOne(`${BASE}/api/v1/agents`);
     expect(req.request.method).toBe('GET');
     req.flush({
       data: [

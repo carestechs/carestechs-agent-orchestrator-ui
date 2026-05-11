@@ -9,7 +9,7 @@ A focused operator console for `carestechs-agent-orchestrator`. The orchestrator
 The orchestrator's `docs/stakeholder-definition.md` includes a **Scope Lock**: any UI lives in a separate consumer repo. This project is that repo. The pain it removes:
 
 - Operators currently read NDJSON traces in a terminal to find which task is waiting on them.
-- Operators hand-craft `curl` POSTs against `/v1/runs/{id}/signals`, mistyping `taskId` regularly.
+- Operators hand-craft `curl` POSTs against `/api/v1/runs/{id}/signals`, mistyping `taskId` regularly.
 - Runs sit paused longer than they should because the babysitting cost is too high.
 
 ## Primary Persona
@@ -20,18 +20,18 @@ The Lifecycle Operator. See `docs/personas/primary-user.md`. Single-user mental 
 
 | Capability | Note |
 |------------|------|
-| List runs with filters (`status`, `agentRef`) and pagination | Powered by `GET /v1/runs`. |
-| Run detail view with live trace tail | Streams `GET /v1/runs/{id}/trace?follow=true`. |
+| List runs with filters (`status`, `agentRef`) and pagination | Powered by `GET /api/v1/runs`. |
+| Run detail view with live trace tail | Streams `GET /api/v1/runs/{id}/trace?follow=true`. |
 | Identify the awaiting human dispatch and prefill the signal form | Reads the last `executor_call` whose state is `dispatched` and mode is `human`. |
-| Submit `implementation-complete` signal | `POST /v1/runs/{id}/signals`. |
-| Cancel a run | `POST /v1/runs/{id}/cancel`. Always reachable on non-terminal runs. |
-| Start a new run | `POST /v1/runs`. Form picks an agent from `GET /v1/agents` and accepts an intake JSON. |
-| List agents | `GET /v1/agents`, used by the start-run form. |
+| Submit `implementation-complete` signal | `POST /api/v1/runs/{id}/signals`. |
+| Cancel a run | `POST /api/v1/runs/{id}/cancel`. Always reachable on non-terminal runs. |
+| Start a new run | `POST /api/v1/runs`. Form picks an agent from `GET /api/v1/agents` and accepts an intake JSON. |
+| List agents | `GET /api/v1/agents`, used by the start-run form. |
 
 ## Out of Scope (v1)
 
 - Per-user identity / RBAC. The orchestrator has a single bearer key. **Real per-operator auth is deferred to FEAT-004**, owned by the orchestrator team; until then the SPA gates only on a shared operator passphrase and the orchestrator authenticates with a single shared API key bundled in the SPA. See `docs/ARCHITECTURE.md` § "Interim security posture".
-- Work-item dashboards (`/v1/work-items` is not exposed by the orchestrator).
+- Work-item dashboards (`/api/v1/work-items` is not exposed by the orchestrator).
 - Per-task drill-downs sourced from a `tasks` endpoint (also not exposed).
 - Forensics views beyond the live trace — `/steps` and `/policy-calls` lookups are deferred to v2.
 - Editing or replaying runs. The UI never mutates trace records.
@@ -40,7 +40,7 @@ The Lifecycle Operator. See `docs/personas/primary-user.md`. Single-user mental 
 ## Constraints That Shape The Product
 
 1. **Interim auth.** The orchestrator API key is bundled into the SPA. This is acceptable **only because the orchestrator deployment is network-gated** (not publicly reachable). Operators are gated by a SPA-side passphrase stored in `sessionStorage` — zero real security value, just keeps casual tab-takeover from being a free action. Real per-operator auth is **FEAT-004**, owned by the orchestrator team. See `docs/ARCHITECTURE.md` § "Interim security posture".
-2. **CORS required.** The orchestrator must allow the SPA's origin and the `authorization` header. The SPA calls `/v1/*` directly; there is no proxy in between.
+2. **CORS required.** The orchestrator must allow the SPA's origin and the `authorization` header. The SPA calls `/api/v1/*` directly; there is no proxy in between.
 3. **NDJSON streaming.** The trace endpoint is plain NDJSON over HTTP, not WebSocket / SSE. The UI consumes it via `fetch` + `ReadableStream`.
 4. **Idempotent writes.** Signals are idempotent on `(runId, name, taskId)`. Retry freely; do not dedupe in the UI.
 5. **CamelCase wire shapes.** All orchestrator JSON is camelCase; the UI matches at the boundary.
@@ -60,7 +60,7 @@ Continuous development — no semantic versioning of the UI itself. The contract
 ## Open Questions / Future Work
 
 - **FEAT-004 — real per-operator auth at the orchestrator.** When this lands, the SPA drops the passphrase gate, stops bundling the API key, and consumes per-operator tokens issued by a real login flow. Until then the interim posture stands.
-- Adding `GET /v1/work-items` upstream would unlock a much richer "what's in flight" view; flag if/when that lands.
+- Adding `GET /api/v1/work-items` upstream would unlock a much richer "what's in flight" view; flag if/when that lands.
 - WebSocket / SSE on the orchestrator would simplify the trace tail but is not currently planned.
 - Reviewer identity (`LIFECYCLE_REVIEWER`) is not surfaced in the trace today; a future trace enhancement may expose it.
 
@@ -70,3 +70,4 @@ Continuous development — no semantic versioning of the UI itself. The contract
 |------|--------|
 | 2026-05-09 | Initial stakeholder definition seeded from `orchestrator-ui-starter.md`. |
 | 2026-05-10 | FEAT-003 — BFF retired. Constraints section rewritten to name the network-gating assumption and the SPA-side passphrase gate. Out-of-scope row added explicitly pointing at FEAT-004 (real per-operator auth at the orchestrator). All `/api/v1/*` paths reframed to `/v1/*`. |
+| 2026-05-11 | BUG-001 — endpoint references reverted to `/api/v1/*` to match the real orchestrator prefix. The FEAT-003 reframe to bare `/v1/*` was incorrect; verified against the orchestrator's OpenAPI. |

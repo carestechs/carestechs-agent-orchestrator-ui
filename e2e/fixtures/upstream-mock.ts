@@ -3,16 +3,16 @@
 // BFF can forward to it unchanged via ORCHESTRATOR_BASE_URL.
 //
 // Endpoints implemented:
-//   GET  /v1/agents
-//   GET  /v1/runs?status=&page=&pageSize=
-//   GET  /v1/runs/:id
-//   GET  /v1/runs/:id/trace?follow=true
-//   POST /v1/runs/:id/signals
-//   POST /v1/runs/:id/cancel
-//   POST /v1/runs                          (start a run; new started runs
+//   GET  /api/v1/agents
+//   GET  /api/v1/runs?status=&page=&pageSize=
+//   GET  /api/v1/runs/:id
+//   GET  /api/v1/runs/:id/trace?follow=true
+//   POST /api/v1/runs/:id/signals
+//   POST /api/v1/runs/:id/cancel
+//   POST /api/v1/runs                          (start a run; new started runs
 //                                          live alongside the seeded one)
-//   GET  /v1/runs/run-e2e-start-N          (started-run detail)
-//   GET  /v1/runs/run-e2e-start-N/trace    (started-run NDJSON)
+//   GET  /api/v1/runs/run-e2e-start-N          (started-run detail)
+//   GET  /api/v1/runs/run-e2e-start-N/trace    (started-run NDJSON)
 //   POST /__test/reset                     (clear seeded + started state)
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
@@ -94,7 +94,7 @@ function runSummary(state: MockState): Record<string, unknown> {
 function runDetail(state: MockState): Record<string, unknown> {
   return {
     ...runSummary(state),
-    traceUri: `/v1/runs/${SEEDED_RUN_ID}/trace`,
+    traceUri: `/api/v1/runs/${SEEDED_RUN_ID}/trace`,
     budget: { maxSteps: 100 },
     currentNode: 'await-human',
   };
@@ -141,7 +141,7 @@ function startedRunSummary(run: StartedRun): Record<string, unknown> {
 function startedRunDetail(run: StartedRun): Record<string, unknown> {
   return {
     ...startedRunSummary(run),
-    traceUri: `/v1/runs/${run.id}/trace`,
+    traceUri: `/api/v1/runs/${run.id}/trace`,
     budget: { maxSteps: 100 },
     currentNode: 'plan',
   };
@@ -194,25 +194,25 @@ export function createUpstreamMock(): UpstreamMockHandle {
     }
 
     // Strip the orchestrator's bearer just by reading it; we don't validate.
-    if (method === 'GET' && url.pathname === '/v1/agents') {
+    if (method === 'GET' && url.pathname === '/api/v1/agents') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
       res.end(envelope([{ ref: SEEDED_AGENT_REF, description: 'demo agent', nodes: [] }]));
       return;
     }
 
-    if (method === 'GET' && url.pathname === '/v1/runs') {
+    if (method === 'GET' && url.pathname === '/api/v1/runs') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
       res.end(envelope([runSummary(state)], { page: 1, pageSize: 20, total: 1 }));
       return;
     }
 
-    if (method === 'GET' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}`) {
+    if (method === 'GET' && url.pathname === `/api/v1/runs/${SEEDED_RUN_ID}`) {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
       res.end(envelope(runDetail(state)));
       return;
     }
 
-    if (method === 'GET' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}/trace`) {
+    if (method === 'GET' && url.pathname === `/api/v1/runs/${SEEDED_RUN_ID}/trace`) {
       res.writeHead(200, {
         'content-type': 'application/x-ndjson',
         'cache-control': 'no-store, no-transform',
@@ -251,7 +251,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
       return;
     }
 
-    if (method === 'POST' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}/signals`) {
+    if (method === 'POST' && url.pathname === `/api/v1/runs/${SEEDED_RUN_ID}/signals`) {
       const raw = await readBody(req);
       let body: { name?: string; taskId?: string } = {};
       try { body = raw ? JSON.parse(raw) : {}; } catch { /* fall through */ }
@@ -294,7 +294,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
       return;
     }
 
-    if (method === 'POST' && url.pathname === `/v1/runs/${SEEDED_RUN_ID}/cancel`) {
+    if (method === 'POST' && url.pathname === `/api/v1/runs/${SEEDED_RUN_ID}/cancel`) {
       if (state.runStatus !== 'paused') {
         problemJson(res, 409, 'run-already-terminal', 'Run already terminal');
         return;
@@ -314,10 +314,10 @@ export function createUpstreamMock(): UpstreamMockHandle {
       return;
     }
 
-    // POST /v1/runs — start-run flow. Generates a deterministic id, persists
+    // POST /api/v1/runs — start-run flow. Generates a deterministic id, persists
     // a StartedRun, and seeds a small canned trace so the SPA's detail screen
     // observes ≥1 record within ~50ms of opening the stream.
-    if (method === 'POST' && url.pathname === '/v1/runs') {
+    if (method === 'POST' && url.pathname === '/api/v1/runs') {
       const raw = await readBody(req);
       let body: { agentRef?: string; intake?: Record<string, unknown>; budget?: { maxSteps?: number } } = {};
       try { body = raw ? JSON.parse(raw) : {}; } catch { /* fall through */ }
@@ -344,7 +344,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
 
     // Started runs: GET detail.
     {
-      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)$/);
+      const m = url.pathname.match(/^\/api\/v1\/runs\/(run-e2e-start-\d+)$/);
       if (method === 'GET' && m) {
         const run = state.startedRuns.get(m[1]!);
         if (!run) {
@@ -359,7 +359,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
 
     // Started runs: NDJSON trace.
     {
-      const m = url.pathname.match(/^\/v1\/runs\/(run-e2e-start-\d+)\/trace$/);
+      const m = url.pathname.match(/^\/api\/v1\/runs\/(run-e2e-start-\d+)\/trace$/);
       if (method === 'GET' && m) {
         const run = state.startedRuns.get(m[1]!);
         if (!run) {

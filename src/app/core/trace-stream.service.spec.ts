@@ -81,7 +81,7 @@ describe('TraceStreamService', () => {
     s.push(sampleStep('rec-1', '2026-05-09T09:00:01Z') + '\n');
     await new Promise((r) => setTimeout(r, 10));
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:4100\/v1\/runs\/r1\/trace\?/);
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:4100\/api\/v1\/runs\/r1\/trace\?/);
     const headers = (init as RequestInit).headers as Record<string, string>;
     expect(headers['Authorization']).toMatch(/^Bearer /);
     expect((init as RequestInit).credentials).toBeUndefined();

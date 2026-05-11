@@ -4,7 +4,7 @@
 
 This document describes **the orchestrator API surface that the Angular SPA calls directly**. After FEAT-003 there is no BFF; the SPA attaches its own `Authorization: Bearer ${ORCHESTRATOR_API_KEY}` (read from `environment.*.ts`) and hits the orchestrator on every request.
 
-When this document and `carestechs-agent-orchestrator/docs/api-spec.md` diverge on any `/v1/*` shape, the orchestrator's is authoritative.
+When this document and `carestechs-agent-orchestrator/docs/api-spec.md` diverge on any `/api/v1/*` shape, the orchestrator's is authoritative.
 
 ## Conventions
 
@@ -26,7 +26,7 @@ There is no `/auth/*` surface anymore.
 
 ## Runs
 
-### `GET /v1/runs`
+### `GET /api/v1/runs`
 
 List runs.
 
@@ -51,13 +51,13 @@ List runs.
 }
 ```
 
-### `GET /v1/runs/{runId}`
+### `GET /api/v1/runs/{runId}`
 
 Run detail.
 
 **Response 200:** `data` is a `RunDetail` (see `data-model.md`); `meta` is `null`.
 
-### `POST /v1/runs`
+### `POST /api/v1/runs`
 
 Start a new run. Returns `202` immediately.
 
@@ -74,7 +74,7 @@ Start a new run. Returns `202` immediately.
 
 **Errors:** `400` (`code: invalid-intake`), `404` (`code: agent-not-found`).
 
-### `POST /v1/runs/{runId}/cancel`
+### `POST /api/v1/runs/{runId}/cancel`
 
 Cancel a non-terminal run.
 
@@ -82,7 +82,7 @@ Cancel a non-terminal run.
 
 **Errors:** `409` (`code: run-already-terminal`).
 
-### `POST /v1/runs/{runId}/signals`
+### `POST /api/v1/runs/{runId}/signals`
 
 The single human-pause write.
 
@@ -121,7 +121,7 @@ If the same `(runId, name, taskId)` is replayed, response is still `202` with `m
 - `404` `code: task-not-in-run-memory` — `taskId` doesn't match any task the run knows about.
 - `422` `code: invalid-signal-payload` — schema violation.
 
-### `GET /v1/runs/{runId}/trace`  *(streaming NDJSON)*
+### `GET /api/v1/runs/{runId}/trace`  *(streaming NDJSON)*
 
 Live trace tail.
 
@@ -134,11 +134,11 @@ Live trace tail.
 
 **Streaming requirement:** any reverse proxy in front of the orchestrator must honor early-flush (e.g., nginx `X-Accel-Buffering: no`). The SPA opens the stream via `fetch` + `ReadableStream` and reads line-by-line; buffering at the orchestrator's hosting layer would defeat the live-trace UX.
 
-### `GET /v1/runs/{runId}/steps`  *(forensics — v2)*
+### `GET /api/v1/runs/{runId}/steps`  *(forensics — v2)*
 
 Paginated step list. Out of scope for v1; deferred.
 
-### `GET /v1/runs/{runId}/policy-calls`  *(forensics — v2)*
+### `GET /api/v1/runs/{runId}/policy-calls`  *(forensics — v2)*
 
 Per-LLM-call audit. Out of scope for v1; deferred.
 
@@ -146,7 +146,7 @@ Per-LLM-call audit. Out of scope for v1; deferred.
 
 ## Agents
 
-### `GET /v1/agents`
+### `GET /api/v1/agents`
 
 List available agents (used to populate the start-run form).
 
@@ -195,7 +195,7 @@ The SPA calls the orchestrator cross-origin. The orchestrator's CORS configurati
 - Allow the SPA's deployed origin. For the **operator-local container topology** shipped with FEAT-005 this is `http://127.0.0.1:4200` (loopback bind on the container host). Also `http://localhost:4200` for dev.
 - Include `authorization` and `content-type` in `Access-Control-Allow-Headers`.
 - Allow `GET, POST, PUT, PATCH, DELETE, OPTIONS` in `Access-Control-Allow-Methods`.
-- Respond to `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /v1/runs/:id/trace`. The streaming endpoint's preflight is the most commonly missed; verify it explicitly.
+- Respond to `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /api/v1/runs/:id/trace`. The streaming endpoint's preflight is the most commonly missed; verify it explicitly.
 
 The in-process e2e mock (`e2e/fixtures/upstream-mock.ts`) echoes the request `Origin` and sets allow-headers/methods accordingly; production orchestrators must do the equivalent.
 
@@ -213,3 +213,4 @@ The in-process e2e mock (`e2e/fixtures/upstream-mock.ts`) echoes the request `Or
 | 2026-05-10 | FEAT-002 — fixed BFF `/api/v1/*` JSON body forwarding. Fastify's default `application/json` parser was shadowing the custom buffer parser, so POST bodies were arriving as parsed objects and getting coerced to `"[object Object]"` when forwarded. `bff/src/server.ts` now calls `removeAllContentTypeParsers()` first; pass-through is now byte-correct as originally specified. |
 | 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly. All paths reframed from `/api/v1/*` to `/v1/*` against the orchestrator base URL. `/auth/*` endpoints removed entirely; operator gate is now SPA-side (no API). New CORS section spelling out the orchestrator requirements. 401 behavior repurposed to "orchestrator key rotation"; `upstream-unavailable` / `upstream-error` codes retired (the BFF that emitted them is gone — generic network failures now flow as `unknown`). |
 | 2026-05-11 | FEAT-005 — CORS section names `http://127.0.0.1:4200` explicitly as the operator-local deployed origin. `scripts/check-orchestrator-cors.sh` referenced as the re-verification check. |
+| 2026-05-11 | BUG-001 — all endpoint paths reframed from `/v1/*` back to `/api/v1/*` to match the real orchestrator (verified against its OpenAPI). The FEAT-003 reframe to bare `/v1/*` was incorrect; the `/api` prefix belongs to the orchestrator, not the retired BFF. SPA, e2e mock, scripts, and tests realigned in the same PR. |

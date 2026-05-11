@@ -64,14 +64,14 @@ hdr=$(curl -s -o /dev/null -D - -X OPTIONS \
   -H "Access-Control-Request-Method: GET" \
   -H "Access-Control-Request-Headers: authorization" \
   --connect-timeout 5 \
-  "$ORCHESTRATOR_BASE_URL/v1/agents" 2>/dev/null | tr -d '\r' || true)
+  "$ORCHESTRATOR_BASE_URL/api/v1/agents" 2>/dev/null | tr -d '\r' || true)
 if echo "$hdr" | grep -qiE "^access-control-allow-origin:[[:space:]]*(\*|$SPA_URL)"; then
   say_ok "CORS preflight from $SPA_URL passes."
 else
   say_fail "CORS preflight from $SPA_URL failed (orchestrator must allow this origin and 'authorization' header — see scripts/check-orchestrator-cors.sh for details)."
 fi
 
-# 4. Authenticated GET /v1/agents succeeds.
+# 4. Authenticated GET /api/v1/agents succeeds.
 if [ -z "$ORCHESTRATOR_API_KEY" ]; then
   echo "[smoke-prod] WARN: ORCHESTRATOR_API_KEY not set in env; skipping authenticated round-trip check." >&2
 else
@@ -81,12 +81,12 @@ else
     -H "Origin: $SPA_URL" \
     -H "Authorization: Bearer $ORCHESTRATOR_API_KEY" \
     --connect-timeout 5 \
-    "$ORCHESTRATOR_BASE_URL/v1/agents" 2>/dev/null)
+    "$ORCHESTRATOR_BASE_URL/api/v1/agents" 2>/dev/null)
   status="${status:-000}"
   if [ "$status" = "200" ]; then
-    say_ok "Authenticated GET /v1/agents returned 200."
+    say_ok "Authenticated GET /api/v1/agents returned 200."
   else
-    say_fail "Authenticated GET /v1/agents returned $status (expected 200; orchestrator may not recognize ORCHESTRATOR_API_KEY, or the path is wrong)."
+    say_fail "Authenticated GET /api/v1/agents returned $status (expected 200; orchestrator may not recognize ORCHESTRATOR_API_KEY, or the path is wrong)."
   fi
 fi
 
