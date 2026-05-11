@@ -120,6 +120,19 @@ Operator activity is not currently auditable per-user; from the orchestrator's p
 - **CORS:** Orchestrator must allow the SPA's origin and `authorization` / `content-type` headers, and respond to `OPTIONS` preflight including on the streaming trace endpoint.
 - **Audit trail:** Not implemented in v1. Tracked under FEAT-004.
 
+## Deployment
+
+The SPA ships as a single nginx-based container.
+
+- **Image:** multi-stage build (`node:20-alpine` builder → `nginx:alpine` runtime). See `Dockerfile`.
+- **Compose:** `docker-compose.prod.yml` joins the external `devtools-infra` network and binds **loopback only** on `127.0.0.1:4200:80`. The loopback bind is **part of** the network-gated security posture (see § "Interim security posture") — operators on the host reach the SPA; the world cannot.
+- **Build args:** `ORCHESTRATOR_BASE_URL`, `ORCHESTRATOR_API_KEY`, `OPERATOR_PASSPHRASE` are passed at build time and materialize `src/environments/environment.prod.ts` before `ng build`. Locked in at build time (rather than fetched at runtime via a `/config.json`) per FEAT-003 T-029 — every env-config change requires a rebuild. **The build args land in the image's layer history** (visible via `docker history`); do not push these images to a shared registry without threat-model review.
+- **CSP:** nginx adds a starter Content-Security-Policy with `'unsafe-inline'` on `script-src` because Angular's zone.js runtime synthesizes inline event handlers. Intentionally permissive for v1; tighten in a follow-up after observing live behavior in report-only mode. The orchestrator base URL is substituted into the CSP's `connect-src` at image build time via `sed`, not at container startup.
+- **Liveness vs readiness:**
+  - **Liveness** is the docker `HEALTHCHECK` defined in the `Dockerfile` — `wget` the index and confirm `<app-root>` is present. Cheap and fast.
+  - **Readiness** (can the SPA actually reach the orchestrator with CORS) is `scripts/smoke-prod.sh`, operator-run after `docker compose up`. The docker healthcheck cannot prove readiness; the smoke script closes the gap.
+- **No reverse proxy or TLS termination** lives inside this container. Whatever fronts it handles those, if needed.
+
 ## AI Task Generation Notes
 
 > These notes help AI assistants generate technically correct tasks.
@@ -139,3 +152,4 @@ Operator activity is not currently auditable per-user; from the orchestrator's p
 | 2026-05-09 | FEAT-001 audit — "API key never reaches browser" property is now mechanically enforced by `scripts/check-no-secrets-in-bundle.sh` (run from `npm run build` `postbuild`) and a Playwright assertion in `e2e/critical-path.spec.ts` that no browser-initiated request carries an `Authorization` header. |
 | 2026-05-10 | FEAT-002 — `features/run-start/` activated (route + form + submit). `RunsService.startRun` extends the existing service. Lighthouse a11y CI gate now also covers `/runs/new` (≥ 0.95). |
 | 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly with a Bearer header. Component Roles, Data Flow, and Security sections rewritten. New **Interim security posture** subsection names the network-gating assumption explicitly. Bundle-leak gate inverted (API key and passphrase now expected in the bundle; framework hook preserved). E2E secret-capture assertions inverted to match. |
+| 2026-05-11 | FEAT-005 — Containerized deployment landed. New **Deployment** subsection names the multi-stage build, the loopback bind (as part of the network-gating story), the build-args-in-layer-history caveat, the starter CSP, and the liveness/readiness split (`scripts/smoke-prod.sh` is the readiness probe; `scripts/check-orchestrator-cors.sh` is the CORS diagnostic). |

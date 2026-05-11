@@ -192,12 +192,14 @@ All errors use RFC 7807 with `code`. The UI's error toast keys on `code`; never 
 
 The SPA calls the orchestrator cross-origin. The orchestrator's CORS configuration must:
 
-- Allow the SPA's deployed origin (and `http://localhost:4200` for dev).
+- Allow the SPA's deployed origin. For the **operator-local container topology** shipped with FEAT-005 this is `http://127.0.0.1:4200` (loopback bind on the container host). Also `http://localhost:4200` for dev.
 - Include `authorization` and `content-type` in `Access-Control-Allow-Headers`.
 - Allow `GET, POST, PUT, PATCH, DELETE, OPTIONS` in `Access-Control-Allow-Methods`.
-- Respond to `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /v1/runs/:id/trace`.
+- Respond to `OPTIONS` preflight on every method used by the SPA, including the streaming `GET /v1/runs/:id/trace`. The streaming endpoint's preflight is the most commonly missed; verify it explicitly.
 
 The in-process e2e mock (`e2e/fixtures/upstream-mock.ts`) echoes the request `Origin` and sets allow-headers/methods accordingly; production orchestrators must do the equivalent.
+
+`scripts/check-orchestrator-cors.sh` is a curl-based verification of the three preflight checks above and should be re-run after any orchestrator deployment topology change.
 
 ---
 
@@ -210,3 +212,4 @@ The in-process e2e mock (`e2e/fixtures/upstream-mock.ts`) echoes the request `Or
 | 2026-05-10 | FEAT-002 — `POST /api/v1/runs` is now consumed by the SPA from `/runs/new`. Contract unchanged. The SPA omits the `budget` key entirely when `maxSteps` is blank rather than sending `budget: { maxSteps: null }`. |
 | 2026-05-10 | FEAT-002 — fixed BFF `/api/v1/*` JSON body forwarding. Fastify's default `application/json` parser was shadowing the custom buffer parser, so POST bodies were arriving as parsed objects and getting coerced to `"[object Object]"` when forwarded. `bff/src/server.ts` now calls `removeAllContentTypeParsers()` first; pass-through is now byte-correct as originally specified. |
 | 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly. All paths reframed from `/api/v1/*` to `/v1/*` against the orchestrator base URL. `/auth/*` endpoints removed entirely; operator gate is now SPA-side (no API). New CORS section spelling out the orchestrator requirements. 401 behavior repurposed to "orchestrator key rotation"; `upstream-unavailable` / `upstream-error` codes retired (the BFF that emitted them is gone — generic network failures now flow as `unknown`). |
+| 2026-05-11 | FEAT-005 — CORS section names `http://127.0.0.1:4200` explicitly as the operator-local deployed origin. `scripts/check-orchestrator-cors.sh` referenced as the re-verification check. |
