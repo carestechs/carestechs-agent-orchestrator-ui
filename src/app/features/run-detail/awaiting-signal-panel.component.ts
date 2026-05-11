@@ -13,10 +13,10 @@ import { SignalsService } from '../../core/signals.service';
 import { ToastService } from '../../shared/toast.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
 import type {
-  ExecutorCallRecord,
   RunStatus,
   SignalPayload,
   SignalRequest,
+  StepRecord,
   TraceRecord,
 } from '../../models';
 
@@ -58,32 +58,33 @@ export class AwaitingSignalPanelComponent {
   readonly fieldErrors = signal<Record<string, string[]>>({});
   readonly taskIdError = signal<string | null>(null);
 
-  readonly awaitingDispatches = computed<ExecutorCallRecord[]>(() => {
-    const records = this.traceRecords();
-    return records.filter(
-      (r): r is ExecutorCallRecord =>
-        r.kind === 'executor_call' && r.state === 'dispatched' && r.mode === 'human',
+  // BUG-002 PR A: derive the cue from `step` records in status='dispatched'.
+  // The pre-FEAT-005 cue was `executor_call mode=human state=dispatched`, but
+  // executor_call lives in a separate JSONL stream on upstream and never
+  // appears in the run trace. PR B will refine the heuristic (filter to a
+  // known human-pause nodeName allowlist; treat status='in_progress' the
+  // same way; consult webhook_event records for richer dispatch detail).
+  readonly awaitingDispatches = computed<StepRecord[]>(() => {
+    return this.traceRecords().filter(
+      (r): r is StepRecord => r.kind === 'step' && r.data.status === 'dispatched',
     );
   });
 
-  readonly latestDispatch = computed<ExecutorCallRecord | null>(() => {
+  readonly latestDispatch = computed<StepRecord | null>(() => {
     const list = this.awaitingDispatches();
     if (list.length === 0) return null;
-    return [...list].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0]!;
+    return [...list].sort((a, b) => {
+      const ta = a.data.dispatchedAt ?? '';
+      const tb = b.data.dispatchedAt ?? '';
+      return tb.localeCompare(ta);
+    })[0]!;
   });
 
   readonly prefilledTaskIds = computed<string[]>(() => {
     const ids = new Set<string>();
     for (const r of this.awaitingDispatches()) {
-      if (typeof r.taskId === 'string' && r.taskId.length > 0) {
-        ids.add(r.taskId);
-        continue;
-      }
-      const intake = r.intake;
-      if (intake && typeof intake === 'object') {
-        const candidate = (intake as Record<string, unknown>)['taskId'];
-        if (typeof candidate === 'string' && candidate.length > 0) ids.add(candidate);
-      }
+      const candidate = (r.data.nodeInputs as Record<string, unknown>)['taskId'];
+      if (typeof candidate === 'string' && candidate.length > 0) ids.add(candidate);
     }
     return [...ids];
   });

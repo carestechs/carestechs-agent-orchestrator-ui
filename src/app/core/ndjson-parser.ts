@@ -25,13 +25,18 @@ export function flush(state: NdjsonParserState): string[] {
 
 const KNOWN_KINDS: ReadonlySet<TraceRecordKind> = new Set([
   'step',
-  'executor_call',
   'policy_call',
   'webhook_event',
-  'effector_call',
+  'operator_signal',
 ]);
 
-/** Validate + decode one NDJSON line. Drops malformed records with a console.warn. */
+/**
+ * Validate + decode one NDJSON line. Drops malformed records with a console.warn.
+ *
+ * Wire shape: `{ kind, data: { id, ... } }`. The kind-specific fields inside
+ * `data` are not validated here; consumers reach into them via the discriminated
+ * union in `src/app/models/trace.ts`. Only the envelope structure is enforced.
+ */
 export function parseTraceLine(line: string): TraceRecord | null {
   let parsed: unknown;
   try {
@@ -43,7 +48,8 @@ export function parseTraceLine(line: string): TraceRecord | null {
   if (typeof parsed !== 'object' || parsed === null) return null;
   const r = parsed as Record<string, unknown>;
   if (typeof r['kind'] !== 'string' || !KNOWN_KINDS.has(r['kind'] as TraceRecordKind)) return null;
-  if (typeof r['recordId'] !== 'string') return null;
-  if (typeof r['occurredAt'] !== 'string') return null;
+  if (typeof r['data'] !== 'object' || r['data'] === null) return null;
+  const data = r['data'] as Record<string, unknown>;
+  if (typeof data['id'] !== 'string') return null;
   return parsed as TraceRecord;
 }

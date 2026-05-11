@@ -3,6 +3,7 @@ import type { TraceRecord, TraceRecordKind } from '../models';
 import { notifyAuthExpired } from './auth-events';
 import { environment } from '../../environments/environment';
 import { createParserState, flush, parseTraceLine, pushChunk } from './ndjson-parser';
+import { getOccurredAt } from './trace-helpers';
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 1000;
@@ -23,7 +24,7 @@ export class TraceStreamService {
 
   readonly latestOccurredAt = computed(() => {
     const list = this._records();
-    return list.length > 0 ? list[list.length - 1]!.occurredAt : null;
+    return list.length > 0 ? getOccurredAt(list[list.length - 1]!) : null;
   });
 
   private controller: AbortController | null = null;
