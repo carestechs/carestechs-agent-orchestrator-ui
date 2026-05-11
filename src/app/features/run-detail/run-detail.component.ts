@@ -14,7 +14,7 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmModalService } from '../../shared/confirm-modal.service';
 import { RunStatusBadgeComponent } from '../../shared/run-status-badge.component';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { RunDetail, RunStatus, TraceRecord } from '../../models';
+import type { RunDetail, RunStatus, StepStatus } from '../../models';
 import { groupTraceByStep } from './group-trace-by-step';
 import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component';
 
@@ -115,14 +115,10 @@ export class RunDetailComponent {
   }
 
   // Helpers used by the template's kind-distinguished render branches.
-  isExecutorHuman(record: TraceRecord): boolean {
-    return record.kind === 'executor_call' && record.mode === 'human';
-  }
-
-  executorStateClass(state: string): string {
-    if (state === 'dispatched') return 'bg-amber-100 text-amber-700';
-    if (state === 'completed') return 'bg-emerald-100 text-emerald-700';
-    if (state === 'failed') return 'bg-red-100 text-red-700';
+  stepStatusClass(status: StepStatus): string {
+    if (status === 'dispatched' || status === 'in_progress') return 'bg-amber-100 text-amber-700';
+    if (status === 'completed') return 'bg-emerald-100 text-emerald-700';
+    if (status === 'failed') return 'bg-red-100 text-red-700';
     return 'bg-slate-100 text-slate-700';
   }
 }

@@ -61,62 +61,55 @@
           <li class="animate-pulse bg-slate-200 rounded h-12"></li>
         }
 
-        @for (group of groupedTrace(); track group.stepNumber) {
+        @for (group of groupedTrace().steps; track group.stepNumber) {
           <li>
             <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Step {{ group.stepNumber }}
             </div>
             <ol class="space-y-2">
-              @for (rec of group.records; track rec.recordId) {
+              @for (rec of group.records; track rec.data.id) {
+                <li data-testid="trace-record" data-trace-kind="step" class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-slate-300">
+                  <div class="flex items-center justify-between text-sm">
+                    <div class="text-slate-700">
+                      <span class="font-medium">{{ rec.data.nodeName }}</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full" [class]="stepStatusClass(rec.data.status)">
+                      {{ rec.data.status }}
+                    </span>
+                  </div>
+                </li>
+              }
+            </ol>
+          </li>
+        }
+
+        @if (groupedTrace().other.length > 0) {
+          <li>
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              Run events
+            </div>
+            <ol class="space-y-2">
+              @for (rec of groupedTrace().other; track rec.data.id) {
                 @switch (rec.kind) {
-                  @case ('step') {
-                    <li data-testid="trace-record" data-trace-kind="step" class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-slate-300">
-                      <div class="text-sm text-slate-700">
-                        <span class="font-medium">{{ rec.nodeName }}</span>
-                        <span class="text-slate-500"> · {{ rec.state }}</span>
-                      </div>
-                    </li>
-                  }
-                  @case ('executor_call') {
-                    <li
-                      data-testid="trace-record"
-                      data-trace-kind="executor_call"
-                      class="bg-white rounded-lg shadow-sm p-3 border-l-4"
-                      [class.border-violet-500]="isExecutorHuman(rec)"
-                      [class.border-sky-500]="!isExecutorHuman(rec)"
-                    >
-                      <div class="flex items-center justify-between text-sm">
-                        <div class="text-slate-700">
-                          Executor · <span class="font-medium">{{ rec.mode }}</span>
-                          @if (rec.taskId) { · <span class="font-mono text-xs">{{ rec.taskId }}</span> }
-                        </div>
-                        <span class="text-xs px-2 py-0.5 rounded-full" [class]="executorStateClass(rec.state)">
-                          {{ rec.state }}
-                        </span>
-                      </div>
-                    </li>
-                  }
                   @case ('policy_call') {
                     <li data-testid="trace-record" data-trace-kind="policy_call" class="bg-slate-50 rounded-lg p-3 border border-slate-200">
                       <div class="text-sm text-slate-700">
-                        LLM call
-                        @if (rec.model) { · <span class="font-mono text-xs">{{ rec.model }}</span> }
+                        LLM call · <span class="font-mono text-xs">{{ rec.data.model }}</span>
                       </div>
                     </li>
                   }
                   @case ('webhook_event') {
                     <li data-testid="trace-record" data-trace-kind="webhook_event" class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-violet-400">
                       <div class="text-sm text-slate-700">
-                        Webhook
-                        @if (rec.source) { · <span class="font-mono text-xs">{{ rec.source }}</span> }
+                        Webhook · <span class="font-mono text-xs">{{ rec.data.eventType }}</span>
                       </div>
                     </li>
                   }
-                  @case ('effector_call') {
-                    <li data-testid="trace-record" data-trace-kind="effector_call" class="bg-sky-50 rounded-lg p-3 border border-sky-200">
+                  @case ('operator_signal') {
+                    <li data-testid="trace-record" data-trace-kind="operator_signal" class="bg-sky-50 rounded-lg p-3 border border-sky-200">
                       <div class="text-sm text-slate-700">
-                        Effector
-                        @if (rec.effector) { · <span class="font-mono text-xs">{{ rec.effector }}</span> }
+                        Operator signal · <span class="font-mono text-xs">{{ rec.data.name }}</span>
+                        @if (rec.data.taskId) { · <span class="font-mono text-xs">{{ rec.data.taskId }}</span> }
                       </div>
                     </li>
                   }

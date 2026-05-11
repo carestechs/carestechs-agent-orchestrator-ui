@@ -38,12 +38,17 @@ function makeStreamingResponse(status = 200): ControllableStream {
 const sampleStep = (id: string, occurredAt: string): string =>
   JSON.stringify({
     kind: 'step',
-    recordId: id,
-    runId: 'r',
-    stepNumber: 1,
-    occurredAt,
-    nodeName: 'load',
-    state: 'started',
+    data: {
+      id,
+      stepNumber: 1,
+      nodeName: 'load_work_item',
+      status: 'completed',
+      nodeInputs: {},
+      nodeResult: null,
+      error: null,
+      dispatchedAt: occurredAt,
+      completedAt: occurredAt,
+    },
   });
 
 let svc: TraceStreamService;
@@ -70,7 +75,7 @@ describe('TraceStreamService', () => {
     s.push(sampleStep('rec-1', '2026-05-09T09:00:01Z') + '\n');
     await new Promise((r) => setTimeout(r, 10));
     expect(svc.records().length).toBe(1);
-    expect(svc.records()[0]!.recordId).toBe('rec-1');
+    expect(svc.records()[0]!.data.id).toBe('rec-1');
     s.close();
   });
 

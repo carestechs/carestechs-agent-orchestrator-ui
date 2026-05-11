@@ -6,17 +6,25 @@ import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component'
 import { SignalsService } from '../../core/signals.service';
 import { ToastService } from '../../shared/toast.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { ExecutorCallRecord, RunStatus, TraceRecord } from '../../models';
+import type { RunStatus, StepRecord, TraceRecord } from '../../models';
 
-const dispatch = (taskId: string, occurredAt: string): ExecutorCallRecord => ({
-  kind: 'executor_call',
-  recordId: `r-${taskId}-${occurredAt}`,
-  runId: 'run-1',
-  stepNumber: 1,
-  occurredAt,
-  state: 'dispatched',
-  mode: 'human',
-  taskId,
+// BUG-002 PR A: cue is derived from `step` records in status='dispatched'.
+// PR B will refine (allowlist of human-pause nodeNames, fall back to
+// webhook_event for richer detail). Tests here cover the PR A heuristic.
+
+const dispatchedStep = (taskId: string, dispatchedAt: string, id?: string): StepRecord => ({
+  kind: 'step',
+  data: {
+    id: id ?? `s-${taskId}-${dispatchedAt}`,
+    stepNumber: 1,
+    nodeName: 'request_implementation',
+    status: 'dispatched',
+    nodeInputs: { taskId },
+    nodeResult: null,
+    error: null,
+    dispatchedAt,
+    completedAt: null,
+  },
 });
 
 interface SetupOpts {
@@ -64,7 +72,7 @@ beforeEach(() => {
 });
 
 describe('AwaitingSignalPanelComponent', () => {
-  it('renders nothing when there are no awaiting human dispatches', () => {
+  it('renders nothing when there are no dispatched step records', () => {
     const { fixture } = setup({ records: [], runStatus: 'running' });
     const html = (fixture.nativeElement as HTMLElement).innerHTML;
     expect(html).not.toContain('Awaiting signal');
@@ -72,7 +80,7 @@ describe('AwaitingSignalPanelComponent', () => {
 
   it('shows form with prefilled, read-only taskId for a single dispatch', () => {
     const { fixture, component } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       runStatus: 'paused',
     });
     expect(component.formVisible()).toBe(true);
@@ -87,8 +95,8 @@ describe('AwaitingSignalPanelComponent', () => {
   it('renders a picker when there are multiple distinct taskIds', () => {
     const { fixture, component } = setup({
       records: [
-        dispatch('T-001', '2026-05-09T09:00:01Z'),
-        dispatch('T-002', '2026-05-09T09:00:02Z'),
+        dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's1'),
+        dispatchedStep('T-002', '2026-05-09T09:00:02Z', 's2'),
       ],
       runStatus: 'paused',
     });
@@ -100,7 +108,7 @@ describe('AwaitingSignalPanelComponent', () => {
 
   it('successful submit toasts "Signal received" and clears optional fields (taskId retained)', async () => {
     const { component, submitSpy, toastSuccess } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
     });
     component.form.patchValue({
       commitSha: 'abcdef1',
@@ -120,16 +128,10 @@ describe('AwaitingSignalPanelComponent', () => {
 
   it('shows "Signal already received" when meta.alreadyReceived is true', async () => {
     const { component, toastSuccess } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       submitImpl: () =>
         of({
-          data: {
-            id: 'sig-1',
-            name: 'implementation-complete',
-            taskId: 'T-001',
-            payload: {},
-            receivedAt: 't',
-          },
+          data: { id: 'sig-1', name: 'implementation-complete', taskId: 'T-001', payload: {}, receivedAt: 't' },
           alreadyReceived: true,
         }),
     });
@@ -146,7 +148,7 @@ describe('AwaitingSignalPanelComponent', () => {
       code: 'task-not-in-run-memory',
     });
     const { component, toastError } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       submitImpl: () => defer(() => throwError(() => err)),
     });
     component.form.patchValue({ commitSha: 'abcdef1', prUrl: 'https://github.com/o/r/pull/1' });
@@ -164,7 +166,7 @@ describe('AwaitingSignalPanelComponent', () => {
       errors: { commitSha: ['must be hex'], prUrl: ['must be https'] },
     });
     const { component } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       submitImpl: () => defer(() => throwError(() => err)),
     });
     component.form.patchValue({ commitSha: 'abcdef1', prUrl: 'https://github.com/o/r/pull/1' });
@@ -182,7 +184,7 @@ describe('AwaitingSignalPanelComponent', () => {
       code: 'run-already-terminal',
     });
     const { component, toastInfo, submitSpy } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       submitImpl: () => defer(() => throwError(() => err)),
     });
     const refreshSpy = vi.fn();
@@ -196,7 +198,7 @@ describe('AwaitingSignalPanelComponent', () => {
 
   it('does not dedupe — two completed submits result in two network calls', async () => {
     const { component, submitSpy } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
     });
     component.form.patchValue({ commitSha: 'abcdef1', prUrl: 'https://github.com/o/r/pull/1' });
     await component.onSubmit();
@@ -206,11 +208,9 @@ describe('AwaitingSignalPanelComponent', () => {
   });
 
   it('guards against double-submit while a request is in flight', () => {
-    const inflight = vi.fn(() => ({
-      subscribe: () => ({ unsubscribe: () => undefined }),
-    }));
+    const inflight = vi.fn(() => ({ subscribe: () => ({ unsubscribe: () => undefined }) }));
     const { component } = setup({
-      records: [dispatch('T-001', '2026-05-09T09:00:01Z')],
+      records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       submitImpl: inflight as unknown as () => unknown,
     });
     component.form.patchValue({ commitSha: 'abcdef1', prUrl: 'https://github.com/o/r/pull/1' });

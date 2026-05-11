@@ -19,8 +19,8 @@ describe('pushChunk', () => {
 
   it('buffers a partial line across chunk boundaries', () => {
     const s = createParserState();
-    expect(pushChunk(s, '{"kind":"step","re')).toEqual([]);
-    expect(pushChunk(s, 'cordId":"r1"}\n')).toEqual(['{"kind":"step","recordId":"r1"}']);
+    expect(pushChunk(s, '{"kind":"step","da')).toEqual([]);
+    expect(pushChunk(s, 'ta":{"id":"r1"}}\n')).toEqual(['{"kind":"step","data":{"id":"r1"}}']);
   });
 
   it('handles \\r\\n terminators', () => {
@@ -51,9 +51,16 @@ describe('flush', () => {
 describe('parseTraceLine', () => {
   it('decodes a valid step record', () => {
     const line =
-      '{"kind":"step","recordId":"r1","runId":"r","stepNumber":1,"occurredAt":"2026-05-09T09:01:00Z","nodeName":"load","state":"started"}';
+      '{"kind":"step","data":{"id":"r1","stepNumber":1,"nodeName":"load_work_item","status":"completed","nodeInputs":{},"nodeResult":{},"error":null,"dispatchedAt":"2026-05-09T09:01:00Z","completedAt":"2026-05-09T09:01:02Z"}}';
     const result = parseTraceLine(line);
-    expect(result).toMatchObject({ kind: 'step', recordId: 'r1' });
+    expect(result).toMatchObject({ kind: 'step', data: { id: 'r1', stepNumber: 1 } });
+  });
+
+  it('decodes a valid operator_signal record', () => {
+    const line =
+      '{"kind":"operator_signal","data":{"id":"s1","runId":"r1","name":"implementation-complete","taskId":"T-001","payload":{},"receivedAt":"2026-05-09T09:02:00Z","dedupeKey":"k"}}';
+    const result = parseTraceLine(line);
+    expect(result).toMatchObject({ kind: 'operator_signal', data: { id: 's1', taskId: 'T-001' } });
   });
 
   it('drops malformed JSON with a console.warn', () => {
@@ -65,18 +72,19 @@ describe('parseTraceLine', () => {
 
   it('drops records with an unknown kind', () => {
     expect(
-      parseTraceLine(
-        '{"kind":"telemetry","recordId":"r1","runId":"r","stepNumber":1,"occurredAt":"t"}',
-      ),
+      parseTraceLine('{"kind":"telemetry","data":{"id":"r1"}}'),
     ).toBeNull();
   });
 
-  it('drops records missing recordId or occurredAt', () => {
+  it('drops records with a missing or non-object data envelope', () => {
+    expect(parseTraceLine('{"kind":"step"}')).toBeNull();
+    expect(parseTraceLine('{"kind":"step","data":null}')).toBeNull();
+    expect(parseTraceLine('{"kind":"step","data":"oops"}')).toBeNull();
+  });
+
+  it('drops records missing data.id', () => {
     expect(
-      parseTraceLine('{"kind":"step","runId":"r","stepNumber":1,"occurredAt":"t"}'),
-    ).toBeNull();
-    expect(
-      parseTraceLine('{"kind":"step","recordId":"r1","runId":"r","stepNumber":1}'),
+      parseTraceLine('{"kind":"step","data":{"stepNumber":1}}'),
     ).toBeNull();
   });
 });

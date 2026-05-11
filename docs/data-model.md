@@ -82,66 +82,85 @@ export interface RunDetail extends RunSummary {
 
 ### `TraceRecord` (discriminated union)
 
-One JSON object per line of the NDJSON trace stream. Discriminated on `kind`.
+One JSON object per line of the NDJSON trace stream. Discriminated on `kind`. Every record uses an envelope shape: `{ kind, data: { ... } }`. Kind-specific fields live inside `data` and each kind has its own timestamp field(s); there is no unified `occurredAt`. Use `src/app/core/trace-helpers.ts` for the kind-aware accessors.
+
+The main trace stream emits **four kinds**. The orchestrator also writes `executor_call` and `effector_call` records but to **separate** JSONL streams (`<trace_dir>/executors/…`, `<trace_dir>/effectors/…`) — those are out of scope for this stream and have no presence in the SPA today.
 
 ```ts
 export type TraceRecord =
   | StepRecord
-  | ExecutorCallRecord
   | PolicyCallRecord
   | WebhookEventRecord
-  | EffectorCallRecord;
+  | OperatorSignalRecord;
 
-export interface TraceRecordBase {
-  recordId: string;
-  runId: string;
-  stepNumber: number;
-  occurredAt: string; // ISO-8601
-}
+export type StepStatus = 'pending' | 'dispatched' | 'in_progress' | 'completed' | 'failed';
 
-export interface StepRecord extends TraceRecordBase {
+export interface StepRecord {
   kind: 'step';
-  nodeName: string;
-  state: 'started' | 'completed' | 'failed';
+  data: {
+    id: string;             // UUID
+    stepNumber: number;
+    nodeName: string;
+    status: StepStatus;
+    nodeInputs: Record<string, unknown>;
+    nodeResult: Record<string, unknown> | null;
+    error: Record<string, unknown> | null;
+    dispatchedAt: string | null;  // ISO-8601
+    completedAt: string | null;   // ISO-8601
+  };
 }
 
-export interface ExecutorCallRecord extends TraceRecordBase {
-  kind: 'executor_call';
-  nodeName: string;
-  mode: 'local' | 'remote' | 'human' | 'engine';
-  state: 'dispatched' | 'completed' | 'failed';
-  intake: Record<string, unknown>;     // What was sent to the executor
-  result: Record<string, unknown> | null; // What came back; null while still dispatched
-}
-
-export interface PolicyCallRecord extends TraceRecordBase {
+export interface PolicyCallRecord {
   kind: 'policy_call';
-  provider: string;
-  model: string;
-  toolSelected: string | null;
-  inputTokens: number;
-  outputTokens: number;
-  latencyMs: number;
+  data: {
+    id: string;
+    stepId: string;            // UUID of the parent step
+    provider: string;
+    model: string;
+    selectedTool: string;
+    toolArguments: Record<string, unknown>;
+    availableTools: Record<string, unknown>[];
+    inputTokens: number;
+    outputTokens: number;
+    latencyMs: number;
+    createdAt: string;
+  };
 }
 
-export interface WebhookEventRecord extends TraceRecordBase {
+export type WebhookEventType =
+  | 'node_started' | 'node_finished' | 'node_failed' | 'flow_terminated'
+  | 'github_pr_opened' | 'github_pr_closed'
+  | 'lifecycle_item_transitioned' | 'executor_dispatch_result';
+
+export interface WebhookEventRecord {
   kind: 'webhook_event';
-  source: string;
-  payload: Record<string, unknown>;
+  data: {
+    id: string;
+    eventType: WebhookEventType;
+    engineRunId: string;
+    payload: Record<string, unknown>;
+    signatureOk: boolean;
+    source: 'engine' | 'github';
+    receivedAt: string;
+    processedAt: string | null;
+  };
 }
 
-export interface EffectorCallRecord extends TraceRecordBase {
-  kind: 'effector_call';
-  effector: string;
-  result: Record<string, unknown>;
+export interface OperatorSignalRecord {
+  kind: 'operator_signal';
+  data: {
+    id: string;
+    runId: string;             // Only kind that carries runId on the record
+    name: string;              // e.g. 'implementation-complete'
+    taskId: string | null;
+    payload: Record<string, unknown>;
+    receivedAt: string;
+    dedupeKey: string;
+  };
 }
 ```
 
-The UI keys most of its rendering on `executor_call` records:
-
-- `state=dispatched` + `mode=human` → the awaiting human pause. The signal form prefills from this record's `intake`.
-- `state=completed` → render result (truncated) inside the timeline.
-- `state=failed` → render in error styling.
+The UI groups `step` records by `data.stepNumber` (descending). Non-step kinds bypass the step grouping and render in a "Run events" panel below the timeline. Awaiting-human detection is currently a minimal heuristic (any `step` with `status='dispatched'`); a richer cue is BUG-002 PR B.
 
 ### `Signal`
 
@@ -277,3 +296,4 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 | 2026-05-09 | FEAT-001 audit — added optional `ProblemDetails.errors: Record<string, string[]>` for 422 `invalid-signal-payload` per-field messages (RFC 7807 extension member). Module-ownership table now reflects flat `src/app/models/<name>.ts` layout (no `.model.ts` suffix). |
 | 2026-05-10 | FEAT-003 — endpoint paths in entity descriptions reframed from `/api/v1/*` to `/v1/*` (no shape change). The SPA now calls the orchestrator directly; see `docs/api-spec.md` for the new auth and CORS framing. |
 | 2026-05-11 | BUG-001 — endpoint paths reverted to `/api/v1/*` after discovering the orchestrator never exposed bare `/v1/*`. See `docs/api-spec.md` BUG-001 changelog row. No shape change. |
+| 2026-05-11 | BUG-002 — `TraceRecord` rewritten to match the real orchestrator wire: enveloped `{ kind, data: { … } }` shape with four kinds (`step`, `policy_call`, `webhook_event`, `operator_signal`). Drop `executor_call`/`effector_call` (they exist upstream but in separate JSONL streams, not in `/api/v1/runs/:id/trace`). Per-kind timestamp fields replace the unified `occurredAt`; `step.status` enum widened (`pending`/`dispatched`/`in_progress`/`completed`/`failed`). Source: orchestrator `service.py:_serialize_trace_record` + `schemas.py` Pydantic models. |

@@ -101,7 +101,8 @@ function runDetail(state: MockState): Record<string, unknown> {
 }
 
 function emit(state: MockState, record: Record<string, unknown>): void {
-  const id = record['recordId'] as string;
+  const data = record['data'] as { id?: string } | undefined;
+  const id = data?.id ?? '';
   if (state.emittedRecordIds.has(id)) return;
   state.emittedRecordIds.add(id);
   const line = JSON.stringify(record) + '\n';
@@ -230,9 +231,9 @@ export function createUpstreamMock(): UpstreamMockHandle {
       const timers: NodeJS.Timeout[] = [];
       if (seedFresh) {
         const seq: Array<[number, Record<string, unknown>]> = [
-          [50, { kind: 'step', recordId: 'rec-step-1', runId: SEEDED_RUN_ID, stepNumber: 1, occurredAt: nowIso(), nodeName: 'plan', state: 'started' }],
-          [120, { kind: 'policy_call', recordId: 'rec-policy-1', runId: SEEDED_RUN_ID, stepNumber: 1, occurredAt: nowIso(), model: 'mock-llm' }],
-          [200, { kind: 'executor_call', recordId: 'rec-exec-dispatch', runId: SEEDED_RUN_ID, stepNumber: 1, occurredAt: nowIso(), state: 'dispatched', mode: 'human', taskId: SEEDED_TASK_ID, intake: { taskId: SEEDED_TASK_ID } }],
+          [50, { kind: 'step', data: { id: 'rec-step-1', stepNumber: 1, nodeName: 'plan', status: 'dispatched', nodeInputs: { taskId: SEEDED_TASK_ID }, nodeResult: null, error: null, dispatchedAt: nowIso(), completedAt: null } }],
+          [120, { kind: 'policy_call', data: { id: 'rec-policy-1', stepId: 'rec-step-1', provider: 'mock', model: 'mock-llm', selectedTool: 'none', toolArguments: {}, availableTools: [], inputTokens: 0, outputTokens: 0, latencyMs: 1, createdAt: nowIso() } }],
+          [200, { kind: 'webhook_event', data: { id: 'rec-webhook-1', eventType: 'node_started', engineRunId: 'engine-1', payload: { taskId: SEEDED_TASK_ID }, signatureOk: true, source: 'engine', receivedAt: nowIso(), processedAt: nowIso() } }],
         ];
         for (const [delay, record] of seq) {
           const t = setTimeout(() => emit(state, record), delay);
@@ -261,23 +262,30 @@ export function createUpstreamMock(): UpstreamMockHandle {
         state.signalsByKey.add(key);
         // Push two follow-up records so the SPA observes the run advance.
         setTimeout(() => emit(state, {
-          kind: 'executor_call',
-          recordId: 'rec-exec-completed',
-          runId: SEEDED_RUN_ID,
-          stepNumber: 1,
-          occurredAt: nowIso(),
-          state: 'completed',
-          mode: 'human',
-          taskId: SEEDED_TASK_ID,
+          kind: 'operator_signal',
+          data: {
+            id: 'rec-signal-1',
+            runId: SEEDED_RUN_ID,
+            name: body.name ?? 'implementation-complete',
+            taskId: body.taskId ?? SEEDED_TASK_ID,
+            payload: {},
+            receivedAt: nowIso(),
+            dedupeKey: key,
+          },
         }), 30);
         setTimeout(() => emit(state, {
           kind: 'step',
-          recordId: 'rec-step-1-completed',
-          runId: SEEDED_RUN_ID,
-          stepNumber: 1,
-          occurredAt: nowIso(),
-          nodeName: 'plan',
-          state: 'completed',
+          data: {
+            id: 'rec-step-1-completed',
+            stepNumber: 1,
+            nodeName: 'plan',
+            status: 'completed',
+            nodeInputs: {},
+            nodeResult: {},
+            error: null,
+            dispatchedAt: nowIso(),
+            completedAt: nowIso(),
+          },
         }), 60);
       }
       res.writeHead(202, { 'content-type': 'application/json; charset=utf-8' });
@@ -302,12 +310,17 @@ export function createUpstreamMock(): UpstreamMockHandle {
       state.runStatus = 'cancelled';
       setTimeout(() => emit(state, {
         kind: 'step',
-        recordId: 'rec-step-1-cancelled',
-        runId: SEEDED_RUN_ID,
-        stepNumber: 1,
-        occurredAt: nowIso(),
-        nodeName: 'plan',
-        state: 'completed',
+        data: {
+          id: 'rec-step-1-cancelled',
+          stepNumber: 1,
+          nodeName: 'plan',
+          status: 'failed',
+          nodeInputs: {},
+          nodeResult: null,
+          error: { reason: 'cancelled' },
+          dispatchedAt: nowIso(),
+          completedAt: nowIso(),
+        },
       }), 30);
       res.writeHead(202, { 'content-type': 'application/json; charset=utf-8' });
       res.end(envelope(runSummary(state)));
@@ -382,12 +395,17 @@ export function createUpstreamMock(): UpstreamMockHandle {
               30,
               {
                 kind: 'step',
-                recordId: `rec-${run.id}-step-1`,
-                runId: run.id,
-                stepNumber: 1,
-                occurredAt: nowIso(),
-                nodeName: 'plan',
-                state: 'started',
+                data: {
+                  id: `rec-${run.id}-step-1`,
+                  stepNumber: 1,
+                  nodeName: 'plan',
+                  status: 'dispatched',
+                  nodeInputs: {},
+                  nodeResult: null,
+                  error: null,
+                  dispatchedAt: nowIso(),
+                  completedAt: null,
+                },
               },
             ],
           ];
