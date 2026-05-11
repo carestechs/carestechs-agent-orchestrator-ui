@@ -1,0 +1,37 @@
+# Production compose for the operator-local topology. Joins the umbrella
+# devtools-infra network so the SPA container is visible alongside the
+# orchestrator. Loopback bind (127.0.0.1:4200:80) is INTENTIONAL — see
+# docs/ARCHITECTURE.md § "Interim security posture". Do not change to
+# 0.0.0.0:4200:80 without revisiting the network-gating assumption.
+#
+# If `devtools-infra` does not exist on this host:
+#   docker network create devtools-infra
+#
+# Build args fail loud at compose-parse time if any required var is missing
+# from the operator's .env file (see .env.example).
+
+services:
+  ui:
+    image: carestechs-ao-ui:latest
+    build:
+      context: .
+      args:
+        ORCHESTRATOR_BASE_URL: ${ORCHESTRATOR_BASE_URL:?ORCHESTRATOR_BASE_URL is required (populate .env from .env.example)}
+        ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY:?ORCHESTRATOR_API_KEY is required (populate .env from .env.example)}
+        OPERATOR_PASSPHRASE: ${OPERATOR_PASSPHRASE:?OPERATOR_PASSPHRASE is required (populate .env from .env.example)}
+    container_name: carestechs-ao-ui
+    restart: unless-stopped
+    ports:
+      # Loopback bind — load-bearing for the network-gated posture from FEAT-003.
+      - "127.0.0.1:4200:80"
+    networks:
+      - devtools-infra
+    # The Dockerfile's HEALTHCHECK already covers liveness (does nginx serve
+    # an index containing <app-root>). Compose inherits it; restating here
+    # would risk drift. Readiness (CORS round-trip to the orchestrator) is
+    # scripts/smoke-prod.sh, operator-run after `docker compose up`.
+
+networks:
+  devtools-infra:
+    external: true
+    name: devtools-infra
