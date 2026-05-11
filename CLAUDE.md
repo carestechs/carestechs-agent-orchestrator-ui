@@ -39,6 +39,30 @@ Both `environment.ts` and `environment.prod.ts` are gitignored. Never `git add -
 
 **Security note:** `orchestratorApiKey` is bundled into the browser by design; the orchestrator deployment is gated by network position, not key confidentiality. See `docs/ARCHITECTURE.md` § "Interim security posture".
 
+### Container build & run
+
+After populating `.env` from `.env.example`:
+
+```bash
+# If the umbrella's network doesn't exist yet on this host:
+docker network create devtools-infra
+
+# Build + run via compose
+docker compose -f docker-compose.prod.yml up -d --build
+
+# Verify the stack is actually READY (CORS, bundle URL, authenticated round-trip)
+scripts/smoke-prod.sh
+
+# Stop
+docker compose -f docker-compose.prod.yml down
+```
+
+The container binds **loopback only** on `127.0.0.1:4200`. Reaching it from another LAN host is intentionally impossible — it's part of the network-gated security posture from `docs/ARCHITECTURE.md` § "Interim security posture".
+
+**Build-args caveat.** `ORCHESTRATOR_API_KEY` and `OPERATOR_PASSPHRASE` are passed as `--build-arg` and end up in the image's layer history. Anyone with the image can read them via `docker history`. This is acceptable under the interim posture (the values are in the bundle anyway), but **do not push these images to a shared registry without a separate threat-model review**. Upgrade path: BuildKit `--secret` mounts; out of scope until it matters.
+
+**Re-verify orchestrator CORS** after any orchestrator deployment topology change: `scripts/check-orchestrator-cors.sh`. Without correct CORS posture the SPA cannot reach the orchestrator at all.
+
 ### Common Commands
 
 ```bash
@@ -247,3 +271,4 @@ This project includes a bundled AI framework (`.ai-framework/`) with prompt temp
 | Date | Change |
 |------|--------|
 | 2026-05-10 | FEAT-003 — BFF retired. SPA calls the orchestrator directly with a Bearer header read from `environment.*.ts`. Operator gate is now SPA-side (`sessionStorage`). API key lives in the bundle by design; security relies on network-gated orchestrator deployment. |
+| 2026-05-11 | FEAT-005 — Container build & run subsection added. Documents the build-arg contract, the loopback-bind security posture, the `smoke-prod.sh` readiness check, the `check-orchestrator-cors.sh` CORS re-verification step, and the build-args-in-layer-history caveat. |
