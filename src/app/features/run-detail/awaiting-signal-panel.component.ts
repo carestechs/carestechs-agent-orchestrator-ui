@@ -151,6 +151,21 @@ export class AwaitingSignalPanelComponent {
     });
   }
 
+  onReset(): void {
+    this.form.patchValue({
+      commitSha: '',
+      prUrl: '',
+      diff: '',
+      implementationNotes: '',
+    });
+    this.form.controls.commitSha.markAsPristine();
+    this.form.controls.prUrl.markAsPristine();
+    this.form.controls.diff.markAsPristine();
+    this.form.controls.implementationNotes.markAsPristine();
+    this.fieldErrors.set({});
+    this.taskIdError.set(null);
+  }
+
   async onSubmit(): Promise<void> {
     if (this.submitting()) return;
     if (this.form.invalid) {

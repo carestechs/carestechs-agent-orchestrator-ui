@@ -10,10 +10,11 @@ import type {
   WebhookEventRecord,
 } from '../../models';
 
-function setup(record: TraceRecord) {
+function setup(record: TraceRecord, awaiting = false) {
   TestBed.configureTestingModule({ imports: [TraceRecordCardComponent] });
   const fixture = TestBed.createComponent(TraceRecordCardComponent);
   fixture.componentRef.setInput('record', record);
+  fixture.componentRef.setInput('awaiting', awaiting);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   return { fixture, component: fixture.componentInstance, el };
@@ -38,12 +39,25 @@ describe('TraceRecordCardComponent', () => {
       },
     };
 
-    it('renders nodeName, status pill, and dispatchedAt', () => {
+    it('renders step number, nodeName, inline status, and HH:MM:SS timestamp', () => {
       const { el } = setup(baseStep);
+      expect(el.innerHTML).toContain('step 1');
       expect(el.innerHTML).toContain('request_implementation');
       expect(el.innerHTML).toContain('completed');
-      expect(el.innerHTML).toContain('2026-05-09T09:00:00Z');
+      // Compact HH:MM:SS shown; full ISO available via title attribute.
+      expect(el.innerHTML).toContain('09:00:02');
       expect(el.querySelector('[data-trace-kind="step"]')).not.toBeNull();
+    });
+
+    it('highlights with amber ring + "Awaiting human signal" footer when awaiting=true', () => {
+      const dispatched: StepRecord = {
+        ...baseStep,
+        data: { ...baseStep.data, status: 'dispatched', completedAt: null },
+      };
+      const { el } = setup(dispatched, true);
+      const row = el.querySelector('[data-trace-kind="step"]') as HTMLElement;
+      expect(row.className).toContain('ring-amber-300');
+      expect(el.innerHTML).toContain('Awaiting human signal');
     });
 
     it('computes duration when both timestamps present', () => {
@@ -96,12 +110,12 @@ describe('TraceRecordCardComponent', () => {
       },
     };
 
-    it('renders provider/model, selected tool, tokens, and latency', () => {
+    it('renders model, tokens, latency, and selected tool inline', () => {
       const { el } = setup(rec);
-      expect(el.innerHTML).toContain('anthropic');
       expect(el.innerHTML).toContain('claude-sonnet-4-6');
       expect(el.innerHTML).toContain('pick_node');
-      expect(el.innerHTML).toContain('412 in / 88 out');
+      expect(el.innerHTML).toContain('in 412t');
+      expect(el.innerHTML).toContain('out 88t');
       expect(el.innerHTML).toContain('743ms');
     });
 
@@ -130,11 +144,11 @@ describe('TraceRecordCardComponent', () => {
       },
     };
 
-    it('renders eventType, source, and timestamp', () => {
+    it('renders eventType, source, and HH:MM:SS timestamp', () => {
       const { el } = setup(rec);
       expect(el.innerHTML).toContain('node_started');
       expect(el.innerHTML).toContain('engine');
-      expect(el.innerHTML).toContain('2026-05-09T09:00:03Z');
+      expect(el.innerHTML).toContain('09:00:03');
     });
 
     it('flags unverified signatures', () => {
@@ -166,12 +180,12 @@ describe('TraceRecordCardComponent', () => {
       },
     };
 
-    it('renders name, taskId, dedupeKey, and timestamp', () => {
+    it('renders name, taskId, dedupeKey, and HH:MM:SS timestamp', () => {
       const { el } = setup(rec);
       expect(el.innerHTML).toContain('implementation-complete');
       expect(el.innerHTML).toContain('T-1');
       expect(el.innerHTML).toContain('implementation-complete|T-1');
-      expect(el.innerHTML).toContain('2026-05-09T09:01:00Z');
+      expect(el.innerHTML).toContain('09:01:00');
     });
 
     it('expands the payload on toggle', () => {

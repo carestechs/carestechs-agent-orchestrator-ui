@@ -185,6 +185,6 @@ describe('RunDetailComponent', () => {
     streamStatus.set('error');
     fixture.detectChanges();
     const html = (fixture.nativeElement as HTMLElement).innerHTML;
-    expect(html).toContain('Reconnect');
+    expect(html.toLowerCase()).toContain('reconnect');
   });
 });
