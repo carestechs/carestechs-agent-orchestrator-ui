@@ -31,7 +31,11 @@ const HTTPS_URL_PATTERN = /^https:\/\/.+/i;
 // order.
 export const HUMAN_PAUSE_NODE_NAMES: readonly string[] = ['request_implementation'];
 
-const DISPATCHED_STATUSES = new Set(['dispatched', 'in_progress'] as const);
+// Real-world wire from the orchestrator: human-pause nodes never get
+// auto-dispatched — they stay in `pending` until the operator submits the
+// signal that *is* the dispatch. We also accept `dispatched`/`in_progress`
+// for runtime variants where the engine sets either before the human acts.
+const AWAITING_STATUSES = new Set(['pending', 'dispatched', 'in_progress'] as const);
 
 @Component({
   selector: 'app-awaiting-signal-panel',
@@ -76,7 +80,7 @@ export class AwaitingSignalPanelComponent {
     return this.traceRecords().filter((r): r is StepRecord => {
       if (r.kind !== 'step') return false;
       if (!HUMAN_PAUSE_NODE_NAMES.includes(r.data.nodeName)) return false;
-      return DISPATCHED_STATUSES.has(r.data.status as 'dispatched' | 'in_progress');
+      return AWAITING_STATUSES.has(r.data.status as 'pending' | 'dispatched' | 'in_progress');
     });
   });
 

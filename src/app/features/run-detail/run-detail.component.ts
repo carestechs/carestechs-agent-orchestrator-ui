@@ -60,7 +60,7 @@ export class RunDetailComponent {
     for (const r of this.trace()) {
       if (r.kind !== 'step') continue;
       if (!HUMAN_PAUSE_NODE_NAMES.includes(r.data.nodeName)) continue;
-      if (r.data.status !== 'dispatched' && r.data.status !== 'in_progress') continue;
+      if (r.data.status !== 'pending' && r.data.status !== 'dispatched' && r.data.status !== 'in_progress') continue;
       ids.add(r.data.id);
     }
     return ids;
