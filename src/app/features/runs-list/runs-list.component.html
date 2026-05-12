@@ -80,7 +80,7 @@
               </div>
               <div class="col-span-2 text-sm text-slate-500">{{ formatRelative(run.startedAt) }}</div>
               <div class="col-span-1 text-sm text-slate-500 text-right">
-                @if (run.lastStepNumber != null) {
+                @if (run.lastStepNumber !== null && run.lastStepNumber !== undefined) {
                   Step {{ run.lastStepNumber }}
                 } @else if (run.stopReason) {
                   <span class="font-mono text-xs">{{ run.stopReason }}</span>
