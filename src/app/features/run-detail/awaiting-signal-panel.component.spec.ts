@@ -247,6 +247,18 @@ describe('AwaitingSignalPanelComponent', () => {
     expect(component.awaitingDispatches().length).toBe(0);
   });
 
+  it('treats status="pending" the same as "dispatched" for allowlisted nodes (real wire)', () => {
+    // Human-pause nodes never auto-dispatch on the real orchestrator; they
+    // sit in 'pending' until the operator's signal acts as the dispatch.
+    const pending = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-pending', {
+      status: 'pending',
+      dispatchedAt: null,
+    });
+    const { component } = setup({ records: [pending], runStatus: 'paused' });
+    expect(component.formVisible()).toBe(true);
+    expect(component.form.controls.taskId.value).toBe('T-001');
+  });
+
   it('treats status="in_progress" the same as "dispatched" for allowlisted nodes', () => {
     const inProgress = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-ip', {
       status: 'in_progress',
