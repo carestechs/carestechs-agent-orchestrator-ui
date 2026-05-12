@@ -14,10 +14,11 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmModalService } from '../../shared/confirm-modal.service';
 import { RunStatusBadgeComponent } from '../../shared/run-status-badge.component';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { RunDetail, RunStatus } from '../../models';
-import { groupTraceByStep } from './group-trace-by-step';
+import type { RunDetail, RunStatus, StepRecord, TraceRecord } from '../../models';
 import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component';
 import { TraceRecordCardComponent } from './trace-record-card.component';
+import { HUMAN_PAUSE_NODE_NAMES } from './awaiting-signal-panel.component';
+import { getOccurredAt } from '../../core/trace-helpers';
 
 @Component({
   selector: 'app-run-detail',
@@ -48,7 +49,26 @@ export class RunDetailComponent {
     return !!r && (r.status === 'completed' || r.status === 'failed' || r.status === 'cancelled');
   });
 
-  readonly groupedTrace = computed(() => groupTraceByStep(this.trace()));
+  // Flat, chronological timeline (matches the approved mockup). Step number
+  // is shown inline on each row instead of via Step N group headers.
+  readonly sortedTrace = computed<TraceRecord[]>(() => {
+    return [...this.trace()].sort((a, b) => getOccurredAt(a).localeCompare(getOccurredAt(b)));
+  });
+
+  readonly awaitingIds = computed<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const r of this.trace()) {
+      if (r.kind !== 'step') continue;
+      if (!HUMAN_PAUSE_NODE_NAMES.includes(r.data.nodeName)) continue;
+      if (r.data.status !== 'dispatched' && r.data.status !== 'in_progress') continue;
+      ids.add(r.data.id);
+    }
+    return ids;
+  });
+
+  isAwaiting(rec: TraceRecord): boolean {
+    return rec.kind === 'step' && this.awaitingIds().has((rec as StepRecord).data.id);
+  }
 
   readonly runStatusForPanel = computed<RunStatus>(() => this.run()?.status ?? 'running');
 

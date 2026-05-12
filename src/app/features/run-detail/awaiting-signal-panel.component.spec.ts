@@ -103,7 +103,7 @@ describe('AwaitingSignalPanelComponent', () => {
     expect(html).not.toContain('Awaiting signal');
   });
 
-  it('shows form with prefilled, read-only taskId for a single dispatch', () => {
+  it('shows form with prefilled taskId chip for a single dispatch', () => {
     const { fixture, component } = setup({
       records: [dispatchedStep('T-001', '2026-05-09T09:00:01Z')],
       runStatus: 'paused',
@@ -112,9 +112,15 @@ describe('AwaitingSignalPanelComponent', () => {
     expect(component.taskIdMode()).toBe('single');
     expect(component.form.controls.taskId.value).toBe('T-001');
     expect(component.form.controls.taskId.disabled).toBe(true);
-    const input = (fixture.nativeElement as HTMLElement).querySelector('#task-id') as HTMLInputElement;
-    expect(input.tagName).toBe('INPUT');
-    expect(input.readOnly).toBe(true);
+    const chip = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="signal-task-id-chip"]',
+    );
+    expect(chip?.textContent?.trim()).toBe('T-001');
+    const srInput = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="signal-task-id"]',
+    ) as HTMLInputElement;
+    expect(srInput.classList.contains('sr-only')).toBe(true);
+    expect(srInput.value).toBe('T-001');
   });
 
   it('renders a picker when there are multiple distinct taskIds', () => {
