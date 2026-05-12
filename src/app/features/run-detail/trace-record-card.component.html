@@ -1,0 +1,179 @@
+@if (asStep(); as r) {
+  <div
+    data-testid="trace-record"
+    data-trace-kind="step"
+    class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-slate-300"
+  >
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="font-medium text-slate-800 truncate">{{ r.data.nodeName }}</span>
+        @if (r.data.dispatchedAt) {
+          <span class="text-xs text-slate-400 font-mono shrink-0">{{ r.data.dispatchedAt }}</span>
+        }
+        @if (stepDurationMs() !== null) {
+          <span class="text-xs text-slate-500 shrink-0">· {{ formatDuration(stepDurationMs()!) }}</span>
+        }
+      </div>
+      <span class="text-xs px-2 py-0.5 rounded-full shrink-0" [class]="stepStatusClass(r.data.status)">
+        {{ r.data.status }}
+      </span>
+    </div>
+
+    @if (r.data.error) {
+      <div class="mt-2 bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-xs">
+        <div class="font-medium mb-1">Error</div>
+        <pre class="font-mono whitespace-pre-wrap break-words">{{ formatJson(r.data.error) }}</pre>
+      </div>
+    }
+
+    @if (!isEmpty(r.data.nodeInputs) || r.data.nodeResult) {
+      <div class="mt-2">
+        <button
+          type="button"
+          (click)="toggleExpanded()"
+          data-testid="trace-record-toggle"
+          class="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+        >
+          <span>{{ expanded() ? '▾' : '▸' }}</span>
+          <span>{{ expanded() ? 'Hide details' : 'Show details' }}</span>
+        </button>
+        @if (expanded()) {
+          <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Inputs</div>
+              <pre class="bg-slate-50 border border-slate-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ formatJson(r.data.nodeInputs) }}</pre>
+            </div>
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Result</div>
+              <pre class="bg-slate-50 border border-slate-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ r.data.nodeResult ? formatJson(r.data.nodeResult) : '—' }}</pre>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (asPolicy(); as r) {
+  <div
+    data-testid="trace-record"
+    data-trace-kind="policy_call"
+    class="bg-slate-50 rounded-lg p-3 border border-slate-200"
+  >
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-slate-700">LLM call</span>
+        <span class="font-mono text-xs text-slate-500 truncate">{{ r.data.provider }} · {{ r.data.model }}</span>
+      </div>
+      <span class="text-xs text-slate-400 font-mono shrink-0">{{ r.data.createdAt }}</span>
+    </div>
+    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+      <span>tool <span class="font-mono">{{ r.data.selectedTool }}</span></span>
+      <span>·</span>
+      <span>{{ r.data.inputTokens }} in / {{ r.data.outputTokens }} out</span>
+      <span>·</span>
+      <span>{{ formatDuration(r.data.latencyMs) }}</span>
+    </div>
+    @if (!isEmpty(r.data.toolArguments) || (r.data.availableTools && r.data.availableTools.length > 0)) {
+      <div class="mt-2">
+        <button
+          type="button"
+          (click)="toggleExpanded()"
+          data-testid="trace-record-toggle"
+          class="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+        >
+          <span>{{ expanded() ? '▾' : '▸' }}</span>
+          <span>{{ expanded() ? 'Hide details' : 'Show details' }}</span>
+        </button>
+        @if (expanded()) {
+          <div class="mt-2 space-y-2">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Tool arguments</div>
+              <pre class="bg-white border border-slate-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ formatJson(r.data.toolArguments) }}</pre>
+            </div>
+            @if (r.data.availableTools && r.data.availableTools.length > 0) {
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  Available tools ({{ r.data.availableTools.length }})
+                </div>
+                <pre class="bg-white border border-slate-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ formatJson(r.data.availableTools) }}</pre>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (asWebhook(); as r) {
+  <div
+    data-testid="trace-record"
+    data-trace-kind="webhook_event"
+    class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-violet-400"
+  >
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-slate-700">Webhook</span>
+        <span class="font-mono text-xs text-slate-600 truncate">{{ r.data.eventType }}</span>
+        <span class="text-xs text-slate-500 shrink-0">· {{ r.data.source }}</span>
+        @if (!r.data.signatureOk) {
+          <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">unverified</span>
+        }
+      </div>
+      <span class="text-xs text-slate-400 font-mono shrink-0">{{ r.data.processedAt ?? r.data.receivedAt }}</span>
+    </div>
+    @if (!isEmpty(r.data.payload)) {
+      <div class="mt-2">
+        <button
+          type="button"
+          (click)="toggleExpanded()"
+          data-testid="trace-record-toggle"
+          class="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+        >
+          <span>{{ expanded() ? '▾' : '▸' }}</span>
+          <span>{{ expanded() ? 'Hide payload' : 'Show payload' }}</span>
+        </button>
+        @if (expanded()) {
+          <pre class="mt-2 bg-slate-50 border border-slate-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ formatJson(r.data.payload) }}</pre>
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (asSignal(); as r) {
+  <div
+    data-testid="trace-record"
+    data-trace-kind="operator_signal"
+    class="bg-sky-50 rounded-lg p-3 border border-sky-200"
+  >
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-slate-700">Operator signal</span>
+        <span class="font-mono text-xs text-slate-600 truncate">{{ r.data.name }}</span>
+        @if (r.data.taskId) {
+          <span class="text-xs text-slate-500 shrink-0">· <span class="font-mono">{{ r.data.taskId }}</span></span>
+        }
+      </div>
+      <span class="text-xs text-slate-400 font-mono shrink-0">{{ r.data.receivedAt }}</span>
+    </div>
+    <div class="mt-1 text-xs text-slate-500 font-mono break-all">dedupe: {{ r.data.dedupeKey }}</div>
+    @if (!isEmpty(r.data.payload)) {
+      <div class="mt-2">
+        <button
+          type="button"
+          (click)="toggleExpanded()"
+          data-testid="trace-record-toggle"
+          class="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+        >
+          <span>{{ expanded() ? '▾' : '▸' }}</span>
+          <span>{{ expanded() ? 'Hide payload' : 'Show payload' }}</span>
+        </button>
+        @if (expanded()) {
+          <pre class="mt-2 bg-white border border-sky-200 rounded p-2 font-mono text-xs whitespace-pre-wrap break-words max-h-64 overflow-auto">{{ formatJson(r.data.payload) }}</pre>
+        }
+      </div>
+    }
+  </div>
+}

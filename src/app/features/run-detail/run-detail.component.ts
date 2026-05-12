@@ -14,14 +14,15 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmModalService } from '../../shared/confirm-modal.service';
 import { RunStatusBadgeComponent } from '../../shared/run-status-badge.component';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { RunDetail, RunStatus, StepStatus } from '../../models';
+import type { RunDetail, RunStatus } from '../../models';
 import { groupTraceByStep } from './group-trace-by-step';
 import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component';
+import { TraceRecordCardComponent } from './trace-record-card.component';
 
 @Component({
   selector: 'app-run-detail',
   standalone: true,
-  imports: [RouterLink, RunStatusBadgeComponent, AwaitingSignalPanelComponent],
+  imports: [RouterLink, RunStatusBadgeComponent, AwaitingSignalPanelComponent, TraceRecordCardComponent],
   templateUrl: './run-detail.component.html',
   styles: [],
 })
@@ -112,13 +113,5 @@ export class RunDetailComponent {
 
   reconnectStream(): void {
     if (this.runId()) this.traceStream.open(this.runId());
-  }
-
-  // Helpers used by the template's kind-distinguished render branches.
-  stepStatusClass(status: StepStatus): string {
-    if (status === 'dispatched' || status === 'in_progress') return 'bg-amber-100 text-amber-700';
-    if (status === 'completed') return 'bg-emerald-100 text-emerald-700';
-    if (status === 'failed') return 'bg-red-100 text-red-700';
-    return 'bg-slate-100 text-slate-700';
   }
 }

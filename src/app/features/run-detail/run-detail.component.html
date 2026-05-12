@@ -68,15 +68,8 @@
             </div>
             <ol class="space-y-2">
               @for (rec of group.records; track rec.data.id) {
-                <li data-testid="trace-record" data-trace-kind="step" class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-slate-300">
-                  <div class="flex items-center justify-between text-sm">
-                    <div class="text-slate-700">
-                      <span class="font-medium">{{ rec.data.nodeName }}</span>
-                    </div>
-                    <span class="text-xs px-2 py-0.5 rounded-full" [class]="stepStatusClass(rec.data.status)">
-                      {{ rec.data.status }}
-                    </span>
-                  </div>
+                <li>
+                  <app-trace-record-card [record]="rec" />
                 </li>
               }
             </ol>
@@ -90,30 +83,9 @@
             </div>
             <ol class="space-y-2">
               @for (rec of groupedTrace().other; track rec.data.id) {
-                @switch (rec.kind) {
-                  @case ('policy_call') {
-                    <li data-testid="trace-record" data-trace-kind="policy_call" class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                      <div class="text-sm text-slate-700">
-                        LLM call · <span class="font-mono text-xs">{{ rec.data.model }}</span>
-                      </div>
-                    </li>
-                  }
-                  @case ('webhook_event') {
-                    <li data-testid="trace-record" data-trace-kind="webhook_event" class="bg-white rounded-lg shadow-sm p-3 border-l-4 border-violet-400">
-                      <div class="text-sm text-slate-700">
-                        Webhook · <span class="font-mono text-xs">{{ rec.data.eventType }}</span>
-                      </div>
-                    </li>
-                  }
-                  @case ('operator_signal') {
-                    <li data-testid="trace-record" data-trace-kind="operator_signal" class="bg-sky-50 rounded-lg p-3 border border-sky-200">
-                      <div class="text-sm text-slate-700">
-                        Operator signal · <span class="font-mono text-xs">{{ rec.data.name }}</span>
-                        @if (rec.data.taskId) { · <span class="font-mono text-xs">{{ rec.data.taskId }}</span> }
-                      </div>
-                    </li>
-                  }
-                }
+                <li>
+                  <app-trace-record-card [record]="rec" />
+                </li>
               }
             </ol>
           </li>

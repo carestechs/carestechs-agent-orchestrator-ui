@@ -3,6 +3,16 @@
     <h2 class="font-[Poppins] text-slate-900 text-lg font-semibold">Awaiting signal</h2>
     <p class="text-sm text-slate-500 mt-1">Submit the human-pause signal to advance this run.</p>
 
+    @if (dispatchWebhook(); as w) {
+      <div data-testid="dispatch-webhook" class="mt-4 rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 text-xs">
+        <div class="flex items-center justify-between gap-2 text-slate-700">
+          <span class="font-medium">Dispatched</span>
+          <span class="font-mono text-slate-500">{{ w.data.receivedAt }}</span>
+        </div>
+        <pre class="mt-1 font-mono text-xs whitespace-pre-wrap break-words max-h-40 overflow-auto text-slate-600">{{ w.data.payload | json }}</pre>
+      </div>
+    }
+
     <form data-testid="signal-form" [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 mt-4">
       <div>
         <label for="task-id" class="block text-sm font-medium text-slate-700 mb-1.5">Task ID</label>
