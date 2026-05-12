@@ -78,22 +78,24 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+// Lean list shape: matches the real orchestrator's GET /api/v1/runs response
+// (no intake / lastStepNumber). Detail endpoint adds them back.
 function runSummary(state: MockState): Record<string, unknown> {
   return {
     id: SEEDED_RUN_ID,
     agentRef: SEEDED_AGENT_REF,
     status: state.runStatus,
-    intake: { featureBriefPath: 'docs/work-items/FEAT-001.md' },
     startedAt: '2026-05-09T09:00:00Z',
     endedAt: state.runStatus === 'paused' ? null : nowIso(),
-    lastStepNumber: 1,
-    terminationReason: state.runStatus === 'cancelled' ? 'cancelled' : null,
+    stopReason: state.runStatus === 'cancelled' ? 'cancelled' : null,
   };
 }
 
 function runDetail(state: MockState): Record<string, unknown> {
   return {
     ...runSummary(state),
+    intake: { featureBriefPath: 'docs/work-items/FEAT-001.md' },
+    lastStepNumber: 1,
     traceUri: `/api/v1/runs/${SEEDED_RUN_ID}/trace`,
     budget: { maxSteps: 100 },
     currentNode: 'await-human',
@@ -131,17 +133,17 @@ function startedRunSummary(run: StartedRun): Record<string, unknown> {
     id: run.id,
     agentRef: run.agentRef,
     status: run.status,
-    intake: run.intake,
     startedAt: run.startedAt,
     endedAt: null,
-    lastStepNumber: null,
-    terminationReason: null,
+    stopReason: null,
   };
 }
 
 function startedRunDetail(run: StartedRun): Record<string, unknown> {
   return {
     ...startedRunSummary(run),
+    intake: run.intake,
+    lastStepNumber: null,
     traceUri: `/api/v1/runs/${run.id}/trace`,
     budget: { maxSteps: 100 },
     currentNode: 'plan',
@@ -203,7 +205,7 @@ export function createUpstreamMock(): UpstreamMockHandle {
 
     if (method === 'GET' && url.pathname === '/api/v1/runs') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      res.end(envelope([runSummary(state)], { page: 1, pageSize: 20, total: 1 }));
+      res.end(envelope([runSummary(state)], { page: 1, pageSize: 20, totalCount: 1 }));
       return;
     }
 

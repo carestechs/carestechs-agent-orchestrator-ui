@@ -62,7 +62,7 @@ export class RunsListComponent {
   readonly nextDisabled = computed(() => {
     const p = this.pagination();
     if (!p) return true;
-    return this.page() * this.pageSize() >= p.total;
+    return this.page() * this.pageSize() >= p.totalCount;
   });
 
   // Monotonic id to discard stale poll responses that arrive after the

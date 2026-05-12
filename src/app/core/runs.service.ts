@@ -32,7 +32,9 @@ export class RunsService {
     return this.api.get<RunSummary[]>('/api/v1/runs', params).pipe(
       map(({ data, meta }) => ({
         data,
-        meta: isPagination(meta) ? meta : { page: 1, pageSize: clampPageSize(filters.pageSize), total: data.length },
+        meta: isPagination(meta)
+          ? meta
+          : { page: 1, pageSize: clampPageSize(filters.pageSize), totalCount: data.length },
       })),
     );
   }
@@ -64,5 +66,5 @@ export class RunsService {
 function isPagination(meta: unknown): meta is Pagination {
   if (typeof meta !== 'object' || meta === null) return false;
   const r = meta as Record<string, unknown>;
-  return typeof r['page'] === 'number' && typeof r['pageSize'] === 'number' && typeof r['total'] === 'number';
+  return typeof r['page'] === 'number' && typeof r['pageSize'] === 'number' && typeof r['totalCount'] === 'number';
 }

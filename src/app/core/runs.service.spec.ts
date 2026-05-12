@@ -49,7 +49,7 @@ describe('RunsService.list', () => {
     expect(req.request.params.get('agentRef')).toBe('lifecycle-agent@0.3.0');
     expect(req.request.params.get('page')).toBe('2');
     expect(req.request.params.get('pageSize')).toBe('50');
-    req.flush({ data: [], meta: { page: 2, pageSize: 50, total: 0 } });
+    req.flush({ data: [], meta: { page: 2, pageSize: 50, totalCount: 0 } });
   });
 
   it('omits status and agentRef when not given', () => {
@@ -58,14 +58,14 @@ describe('RunsService.list', () => {
     expect(req.request.params.has('status')).toBe(false);
     expect(req.request.params.has('agentRef')).toBe(false);
     expect(req.request.params.get('pageSize')).toBe(String(DEFAULT_PAGE_SIZE));
-    req.flush({ data: [], meta: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0 } });
+    req.flush({ data: [], meta: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalCount: 0 } });
   });
 
   it('clamps oversized pageSize to 100', () => {
     runs.list({ pageSize: 999 }).subscribe();
     const req = httpMock.expectOne((r) => r.url === `${BASE}/api/v1/runs`);
     expect(req.request.params.get('pageSize')).toBe(String(MAX_PAGE_SIZE));
-    req.flush({ data: [], meta: { page: 1, pageSize: MAX_PAGE_SIZE, total: 0 } });
+    req.flush({ data: [], meta: { page: 1, pageSize: MAX_PAGE_SIZE, totalCount: 0 } });
   });
 
   it('decodes the response into RunSummary[] + Pagination meta', () => {
@@ -82,14 +82,14 @@ describe('RunsService.list', () => {
           startedAt: '2026-05-09T09:01:00Z',
           endedAt: null,
           lastStepNumber: 17,
-          terminationReason: null,
+          stopReason: null,
         },
       ],
-      meta: { page: 1, pageSize: 20, total: 1 },
+      meta: { page: 1, pageSize: 20, totalCount: 1 },
     });
     expect(result).toMatchObject({
       data: [{ id: 'r1', status: 'paused' }],
-      meta: { page: 1, pageSize: 20, total: 1 },
+      meta: { page: 1, pageSize: 20, totalCount: 1 },
     });
   });
 });
@@ -109,7 +109,7 @@ describe('RunsService.get', () => {
         startedAt: '2026-05-09T09:00:00Z',
         endedAt: null,
         lastStepNumber: null,
-        terminationReason: null,
+        stopReason: null,
         traceUri: '/api/v1/runs/r%2F1/trace',
         budget: { maxSteps: 200 },
         currentNode: 'load_work_item',
@@ -135,7 +135,7 @@ describe('RunsService.cancel', () => {
         startedAt: '2026-05-09T09:00:00Z',
         endedAt: '2026-05-09T09:05:00Z',
         lastStepNumber: 18,
-        terminationReason: 'cancelled',
+        stopReason: 'cancelled',
       },
       meta: null,
     });
@@ -168,7 +168,7 @@ describe('RunsService.startRun', () => {
     startedAt: '2026-05-10T10:00:00Z',
     endedAt: null,
     lastStepNumber: null,
-    terminationReason: null,
+    stopReason: null,
   };
 
   it('POSTs the request body to /api/v1/runs and unwraps data to a RunSummary', () => {

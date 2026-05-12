@@ -17,7 +17,7 @@ const sampleRun = (id: string, startedAt: string, status: RunSummary['status'] =
   startedAt,
   endedAt: null,
   lastStepNumber: 3,
-  terminationReason: null,
+  stopReason: null,
 });
 
 interface SetupOpts {
@@ -26,7 +26,7 @@ interface SetupOpts {
 }
 
 function setup(opts: SetupOpts = {}) {
-  const listSpy = vi.fn(opts.listImpl ?? (() => of({ data: [], meta: { page: 1, pageSize: 20, total: 0 } })));
+  const listSpy = vi.fn(opts.listImpl ?? (() => of({ data: [], meta: { page: 1, pageSize: 20, totalCount: 0 } })));
   const agentsSpy = vi.fn(() => of([]));
   const navSpy = vi.fn().mockResolvedValue(true);
 
@@ -82,7 +82,7 @@ describe('RunsListComponent', () => {
       sampleRun('c', '2026-05-09T10:00:00Z'),
     ];
     const { fixture, component } = setup({
-      listImpl: () => of({ data: runs, meta: { page: 1, pageSize: 20, total: 3 } }),
+      listImpl: () => of({ data: runs, meta: { page: 1, pageSize: 20, totalCount: 3 } }),
     });
     fixture.detectChanges();
     await new Promise((r) => setTimeout(r, 0));
@@ -101,14 +101,14 @@ describe('RunsListComponent', () => {
 
   it('disables Prev on page 1 and Next at total bound', async () => {
     const { fixture, component } = setup({
-      listImpl: () => of({ data: [sampleRun('x', '2026-05-09T10:00:00Z')], meta: { page: 1, pageSize: 20, total: 20 } }),
+      listImpl: () => of({ data: [sampleRun('x', '2026-05-09T10:00:00Z')], meta: { page: 1, pageSize: 20, totalCount: 20 } }),
     });
     fixture.detectChanges();
     await new Promise((r) => setTimeout(r, 0));
     expect(component.prevDisabled()).toBe(true);
     expect(component.nextDisabled()).toBe(true);
     component.page.set(2);
-    component.pagination.set({ page: 2, pageSize: 20, total: 21 });
+    component.pagination.set({ page: 2, pageSize: 20, totalCount: 21 });
     expect(component.prevDisabled()).toBe(false);
     expect(component.nextDisabled()).toBe(true);
   });
@@ -175,7 +175,7 @@ describe('RunsListComponent', () => {
 
   it('renders the empty-state "Start a run" CTA when no runs match the filter', async () => {
     const { fixture } = setup({
-      listImpl: () => of({ data: [], meta: { page: 1, pageSize: 20, total: 0 } }),
+      listImpl: () => of({ data: [], meta: { page: 1, pageSize: 20, totalCount: 0 } }),
     });
     fixture.detectChanges();
     await new Promise((r) => setTimeout(r, 0));

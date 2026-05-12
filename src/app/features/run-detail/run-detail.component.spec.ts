@@ -21,7 +21,7 @@ const sampleDetail = (status: RunDetail['status'] = 'paused'): RunDetail => ({
   startedAt: '2026-05-09T09:00:00Z',
   endedAt: null,
   lastStepNumber: 2,
-  terminationReason: null,
+  stopReason: null,
   traceUri: '/api/v1/runs/run-1/trace',
   budget: { maxSteps: 100 },
   currentNode: 'plan',

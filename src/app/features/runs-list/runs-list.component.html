@@ -76,11 +76,15 @@
                 <div class="font-mono text-xs text-slate-500 truncate">{{ run.id }}</div>
               </div>
               <div class="col-span-4 text-sm text-slate-600 truncate">
-                {{ run.intake['featureBriefPath'] || '—' }}
+                {{ run.intake?.['featureBriefPath'] ?? run.intake?.['workItemPath'] ?? '—' }}
               </div>
               <div class="col-span-2 text-sm text-slate-500">{{ formatRelative(run.startedAt) }}</div>
               <div class="col-span-1 text-sm text-slate-500 text-right">
-                @if (run.lastStepNumber !== null) { Step {{ run.lastStepNumber }} }
+                @if (run.lastStepNumber != null) {
+                  Step {{ run.lastStepNumber }}
+                } @else if (run.stopReason) {
+                  <span class="font-mono text-xs">{{ run.stopReason }}</span>
+                }
               </div>
             </a>
           </li>
@@ -90,7 +94,7 @@
       <nav class="flex items-center justify-between mt-6 text-sm" aria-label="Pagination">
         <div class="text-slate-500">
           @if (pagination()) {
-            Page {{ page() }} · {{ pagination()!.total }} total
+            Page {{ page() }} · {{ pagination()!.totalCount }} total
           }
         </div>
         <div class="flex gap-2">

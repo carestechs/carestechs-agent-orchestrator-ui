@@ -25,34 +25,41 @@ A row in the runs list. From `GET /api/v1/runs`.
 | `startedAt` | `string` (ISO-8601) | |
 | `endedAt` | `string \| null` | Set when status is terminal |
 | `lastStepNumber` | `number \| null` | Useful for progress rendering |
-| `terminationReason` | `TerminationReason \| null` | See enum below; only set when terminal |
+| `stopReason` | `StopReason \| null` (optional) | See enum below; only set when terminal. Real orchestrator field is `stopReason`, not `terminationReason`. |
+| `intake` | `RunIntake` (optional) | NOT included on list responses; populated on `GET /api/v1/runs/{id}` |
+| `lastStepNumber` | `number \| null` (optional) | NOT included on list responses; populated on detail |
 
 ```ts
 export type RunStatus = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
 
-export type TerminationReason =
+export type StopReason =
   | 'done_node'
   | 'policy_terminated'
   | 'budget_exceeded'
   | 'correction_budget_exceeded'
   | 'error'
-  | 'cancelled';
+  | 'cancelled'
+  | (string & {});
 
 export interface RunIntake {
   featureBriefPath?: string;
+  workItemPath?: string;
   // Other fields are agent-specific; treat as opaque map for unknown agents.
   [key: string]: unknown;
 }
 
+// List endpoint returns a lean summary — intake and lastStepNumber are
+// optional and present only on the detail response. Source: live capture
+// of GET /api/v1/runs against lifecycle-agent@0.3.0.
 export interface RunSummary {
   id: string;
   agentRef: string;
   status: RunStatus;
-  intake: RunIntake;
   startedAt: string;
   endedAt: string | null;
-  lastStepNumber: number | null;
-  terminationReason: TerminationReason | null;
+  stopReason?: StopReason | null;
+  intake?: RunIntake;
+  lastStepNumber?: number | null;
 }
 ```
 
@@ -74,6 +81,8 @@ export interface RunBudget {
 }
 
 export interface RunDetail extends RunSummary {
+  // intake is required here even though it's optional on the summary.
+  intake: RunIntake;
   traceUri: string;
   budget: RunBudget;
   currentNode: string | null;
@@ -234,7 +243,7 @@ The UI keys on `code` (not `status` alone) for error-specific copy.
 export interface Pagination {
   page: number;
   pageSize: number;
-  total: number;
+  totalCount: number;
 }
 ```
 
@@ -272,7 +281,7 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 
 | Folder | Entities |
 |--------|----------|
-| `src/app/models/run.model.ts` | `RunStatus`, `TerminationReason`, `RunIntake`, `RunSummary`, `RunBudget`, `RunDetail` |
+| `src/app/models/run.model.ts` | `RunStatus`, `StopReason`, `RunIntake`, `RunSummary`, `RunBudget`, `RunDetail` |
 | `src/app/models/trace.model.ts` | `TraceRecord` and all variants |
 | `src/app/models/signal.model.ts` | `SignalName`, `SignalPayload`, `SignalRequest`, `SignalReceipt` |
 | `src/app/models/agent.model.ts` | `Agent`, `AgentNode` |
@@ -299,3 +308,4 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 | 2026-05-11 | BUG-002 — `TraceRecord` rewritten to match the real orchestrator wire: enveloped `{ kind, data: { … } }` shape with four kinds (`step`, `policy_call`, `webhook_event`, `operator_signal`). Drop `executor_call`/`effector_call` (they exist upstream but in separate JSONL streams, not in `/api/v1/runs/:id/trace`). Per-kind timestamp fields replace the unified `occurredAt`; `step.status` enum widened (`pending`/`dispatched`/`in_progress`/`completed`/`failed`). Source: orchestrator `service.py:_serialize_trace_record` + `schemas.py` Pydantic models. |
 | 2026-05-12 | BUG-002 PR B — No wire-shape changes; documents how the SPA renders the envelope. Each kind now exposes its structured fields via `app-trace-record-card` (see `docs/ui-specification.md` § Run Detail). Awaiting-human heuristic upgraded from "any `step` in `dispatched`" to "`step.data.nodeName` in the human-pause allowlist (`request_implementation`) AND `data.status` ∈ {`dispatched`, `in_progress`}", with a matching `webhook_event` (`eventType='node_started'`) surfaced above the signal form when present. |
 | 2026-05-12 | BUG-002 PR D — Awaiting-human heuristic widened to also accept `status='pending'` (the real orchestrator never auto-dispatches human-pause nodes; they sit in `pending` until the operator submits). No wire-shape change. |
+| 2026-05-12 | BUG-003 — `RunSummary` realigned to the real list wire after the runs list crashed on real failed runs. Field rename `terminationReason` → `stopReason` (open-ended union, accept any string for forward-compat). `intake` and `lastStepNumber` made optional — they're NOT in the list response, only in `GET /api/v1/runs/{id}` detail. Source: captured response from a live `lifecycle-agent@0.3.0` run list. |
