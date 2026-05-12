@@ -7,6 +7,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { JsonPipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { SignalsService } from '../../core/signals.service';
@@ -18,15 +19,24 @@ import type {
   SignalRequest,
   StepRecord,
   TraceRecord,
+  WebhookEventRecord,
 } from '../../models';
 
 const COMMIT_SHA_PATTERN = /^[0-9a-fA-F]{7,40}$/;
 const HTTPS_URL_PATTERN = /^https:\/\/.+/i;
 
+// Allowlist of node names that pause the run waiting for an operator signal.
+// Keep this in sync with the orchestrator's human-pause nodes; extend as the
+// lifecycle agent adds new ones. Pure data — no logic relies on enumeration
+// order.
+export const HUMAN_PAUSE_NODE_NAMES: readonly string[] = ['request_implementation'];
+
+const DISPATCHED_STATUSES = new Set(['dispatched', 'in_progress'] as const);
+
 @Component({
   selector: 'app-awaiting-signal-panel',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, JsonPipe],
   templateUrl: './awaiting-signal-panel.component.html',
   styles: [],
 })
@@ -58,16 +68,40 @@ export class AwaitingSignalPanelComponent {
   readonly fieldErrors = signal<Record<string, string[]>>({});
   readonly taskIdError = signal<string | null>(null);
 
-  // BUG-002 PR A: derive the cue from `step` records in status='dispatched'.
-  // The pre-FEAT-005 cue was `executor_call mode=human state=dispatched`, but
-  // executor_call lives in a separate JSONL stream on upstream and never
-  // appears in the run trace. PR B will refine the heuristic (filter to a
-  // known human-pause nodeName allowlist; treat status='in_progress' the
-  // same way; consult webhook_event records for richer dispatch detail).
+  // BUG-002 PR B: filter to a known human-pause nodeName and accept both
+  // dispatched and in_progress (the orchestrator transitions through
+  // in_progress for human nodes too). PR A used a broader heuristic
+  // (any step in status='dispatched') as a stopgap.
   readonly awaitingDispatches = computed<StepRecord[]>(() => {
-    return this.traceRecords().filter(
-      (r): r is StepRecord => r.kind === 'step' && r.data.status === 'dispatched',
-    );
+    return this.traceRecords().filter((r): r is StepRecord => {
+      if (r.kind !== 'step') return false;
+      if (!HUMAN_PAUSE_NODE_NAMES.includes(r.data.nodeName)) return false;
+      return DISPATCHED_STATUSES.has(r.data.status as 'dispatched' | 'in_progress');
+    });
+  });
+
+  // Find the latest webhook_event with eventType='node_started' that matches
+  // one of the awaiting dispatches by nodeName, so we can surface payload
+  // metadata above the form. Matches by `payload.nodeName` since webhook
+  // payloads don't carry the step's UUID directly.
+  readonly dispatchWebhook = computed<WebhookEventRecord | null>(() => {
+    const dispatches = this.awaitingDispatches();
+    if (dispatches.length === 0) return null;
+    const dispatchedNodes = new Set(dispatches.map((s) => s.data.nodeName));
+    let latest: WebhookEventRecord | null = null;
+    for (const r of this.traceRecords()) {
+      if (r.kind !== 'webhook_event') continue;
+      if (r.data.eventType !== 'node_started') continue;
+      const nodeName = (r.data.payload as Record<string, unknown>)['nodeName'];
+      if (typeof nodeName !== 'string' || !dispatchedNodes.has(nodeName)) continue;
+      if (
+        !latest ||
+        (r.data.receivedAt ?? '') > (latest.data.receivedAt ?? '')
+      ) {
+        latest = r;
+      }
+    }
+    return latest;
   });
 
   readonly latestDispatch = computed<StepRecord | null>(() => {

@@ -65,6 +65,59 @@ That needs a real paused run to verify against. Out of scope for PR A so the tra
 - Showing `executor_call` / `effector_call` from the secondary streams. Those will need new endpoints (or a UI-side fetch of the side files) and are out of scope.
 - Backwards compatibility with the old flat shape. We delete it cleanly; the e2e mock and unit tests move forward together.
 
+## Scope (PR B — follow-up)
+
+PR A intentionally stopped at "renders at all". Each row shows only `data.nodeName` + `data.status` for steps and a single-line "kind · field" for non-step records. The envelope already carries everything we need to match the `ui-specification.md` trace mockup; PR B wires it through. PR B also lands the refined awaiting-signal cue noted above, since both touch `run-detail.component.html` and `awaiting-signal-panel.component.ts`.
+
+### Rich trace rendering
+
+Per kind, expose the structured fields the orchestrator already sends:
+
+- **Step** — `dispatchedAt` / `completedAt` (formatted + duration when both present), collapsible `nodeInputs` / `nodeResult` JSON panes, a red `error` block when `error !== null`, status pill keyed off `data.status` (already exists).
+- **policy_call** — `provider`, `model`, `selectedTool`, collapsible `toolArguments` and `availableTools`, `inputTokens` / `outputTokens` / `latencyMs` in a compact metrics row, `createdAt`.
+- **webhook_event** — `eventType` badge, `source` (`engine` / `github`), `signatureOk` indicator, collapsible `payload`, `receivedAt` / `processedAt`.
+- **operator_signal** — `name`, `taskId`, collapsible `payload`, `receivedAt`, `dedupeKey` (monospace, secondary).
+
+Implementation notes:
+- Add a `<app-trace-record-card>` shared component with one `@switch` per kind so `run-detail.component.html` stays declarative.
+- Reuse `getOccurredAt` from `trace-helpers.ts` for the timestamp shown in the card header; per-kind extra timestamps render inline in the body.
+- JSON panes: collapsed by default; click-to-expand; use `<pre class="font-mono text-xs">` with `JSON.stringify(value, null, 2)`. No syntax highlighter dep.
+- Step group header (already in PR A) keeps `Step N`; cards nested inside the group continue to render in stream order.
+
+### Awaiting-signal cue refinement
+
+Replace the PR A heuristic (`step.status === 'dispatched'`) with a more accurate cue that needs a real paused run to verify against:
+
+1. Primary signal: a `step` whose `data.nodeName` is in a known human-pause allowlist (start with `['request_implementation']`; document how to extend) AND `data.status` is `dispatched` or `in_progress`.
+2. Fallback / enrichment: a `webhook_event` with `eventType === 'node_started'` for the same `nodeName`, used to display the dispatch metadata (timestamp, payload preview) above the form.
+3. Treat `data.status === 'in_progress'` the same as `dispatched` (the orchestrator transitions through `in_progress` for human nodes too).
+4. `taskId` still comes from `step.data.nodeInputs.taskId`; keep the single / picker modes.
+
+### Acceptance Criteria (PR B)
+
+- Each kind renders the fields listed above; collapsibles default closed.
+- A paused run with a `request_implementation` step in `dispatched` shows the form pre-filled exactly as PR A; the same run in `in_progress` also shows the form (regression-test against the PR A heuristic).
+- A `webhook_event` matching the dispatched step appears above the form with its payload preview (no form if no matching step).
+- `npm test` passes (new component spec for `trace-record-card`; updated `awaiting-signal-panel` spec for the allowlist + `in_progress`).
+- `npm run e2e` passes — the e2e mock seeds at least one `policy_call` and one `webhook_event` with non-trivial fields so visual rendering is exercised.
+- `docs/ui-specification.md` § Trace timeline updated to reflect the per-kind card; BUG-002 PR B changelog row appended to `data-model.md` and `ui-specification.md`.
+
+### Files (PR B)
+
+- `src/app/features/run-detail/trace-record-card.component.{ts,html}` (new)
+- `src/app/features/run-detail/run-detail.component.html` (delegate to the card)
+- `src/app/features/run-detail/awaiting-signal-panel.component.ts` (allowlist + `in_progress`; consult `webhook_event`)
+- `src/app/features/run-detail/awaiting-signal-panel.component.html` (dispatch preview block)
+- Specs: `trace-record-card.component.spec.ts` (new), `awaiting-signal-panel.component.spec.ts` (update)
+- `e2e/fixtures/upstream-mock.ts` (richer seeded `policy_call` / `webhook_event`)
+- `docs/ui-specification.md`, `docs/data-model.md` (changelog rows)
+
+### Out of Scope (PR B)
+
+- `executor_call` / `effector_call` from the secondary JSONL streams — still need new orchestrator endpoints; deferred.
+- Search / filter over the timeline.
+- Live diffing of `nodeInputs` vs `nodeResult`. JSON-only for now.
+
 ## Files
 - `src/app/models/trace.ts` (rewrite)
 - `src/app/core/trace-helpers.ts` (new)

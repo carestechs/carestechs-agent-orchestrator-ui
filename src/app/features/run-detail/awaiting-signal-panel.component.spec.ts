@@ -6,13 +6,19 @@ import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component'
 import { SignalsService } from '../../core/signals.service';
 import { ToastService } from '../../shared/toast.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { RunStatus, StepRecord, TraceRecord } from '../../models';
+import type { RunStatus, StepRecord, TraceRecord, WebhookEventRecord } from '../../models';
 
-// BUG-002 PR A: cue is derived from `step` records in status='dispatched'.
-// PR B will refine (allowlist of human-pause nodeNames, fall back to
-// webhook_event for richer detail). Tests here cover the PR A heuristic.
+// BUG-002 PR B: cue is derived from `step` records whose nodeName is in the
+// human-pause allowlist (`request_implementation`) AND whose status is
+// `dispatched` or `in_progress`. A matching webhook_event (`node_started`)
+// is surfaced above the form.
 
-const dispatchedStep = (taskId: string, dispatchedAt: string, id?: string): StepRecord => ({
+const dispatchedStep = (
+  taskId: string,
+  dispatchedAt: string,
+  id?: string,
+  overrides: Partial<StepRecord['data']> = {},
+): StepRecord => ({
   kind: 'step',
   data: {
     id: id ?? `s-${taskId}-${dispatchedAt}`,
@@ -24,6 +30,25 @@ const dispatchedStep = (taskId: string, dispatchedAt: string, id?: string): Step
     error: null,
     dispatchedAt,
     completedAt: null,
+    ...overrides,
+  },
+});
+
+const webhookNodeStarted = (
+  nodeName: string,
+  receivedAt: string,
+  id = `wh-${nodeName}-${receivedAt}`,
+): WebhookEventRecord => ({
+  kind: 'webhook_event',
+  data: {
+    id,
+    eventType: 'node_started',
+    engineRunId: 'engine-1',
+    payload: { nodeName, taskId: 'T-001' },
+    signatureOk: true,
+    source: 'engine',
+    receivedAt,
+    processedAt: receivedAt,
   },
 });
 
@@ -205,6 +230,46 @@ describe('AwaitingSignalPanelComponent', () => {
     component.form.patchValue({ commitSha: 'abcdef1', prUrl: 'https://github.com/o/r/pull/1' });
     await component.onSubmit();
     expect(submitSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores dispatched steps whose nodeName is not in the human-pause allowlist', () => {
+    const offAllowlist = dispatchedStep('T-999', '2026-05-09T09:00:01Z', 's-off', {
+      nodeName: 'plan',
+    });
+    const { component } = setup({ records: [offAllowlist], runStatus: 'paused' });
+    expect(component.formVisible()).toBe(false);
+    expect(component.awaitingDispatches().length).toBe(0);
+  });
+
+  it('treats status="in_progress" the same as "dispatched" for allowlisted nodes', () => {
+    const inProgress = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-ip', {
+      status: 'in_progress',
+    });
+    const { component } = setup({ records: [inProgress], runStatus: 'paused' });
+    expect(component.formVisible()).toBe(true);
+    expect(component.form.controls.taskId.value).toBe('T-001');
+  });
+
+  it('surfaces a matching node_started webhook_event above the form', () => {
+    const records: TraceRecord[] = [
+      dispatchedStep('T-001', '2026-05-09T09:00:01Z'),
+      webhookNodeStarted('request_implementation', '2026-05-09T09:00:02Z'),
+    ];
+    const { fixture, component } = setup({ records, runStatus: 'paused' });
+    expect(component.dispatchWebhook()).not.toBeNull();
+    const block = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="dispatch-webhook"]',
+    );
+    expect(block).not.toBeNull();
+  });
+
+  it('ignores webhook_events for non-matching nodeNames', () => {
+    const records: TraceRecord[] = [
+      dispatchedStep('T-001', '2026-05-09T09:00:01Z'),
+      webhookNodeStarted('plan', '2026-05-09T09:00:02Z'),
+    ];
+    const { component } = setup({ records, runStatus: 'paused' });
+    expect(component.dispatchWebhook()).toBeNull();
   });
 
   it('guards against double-submit while a request is in flight', () => {

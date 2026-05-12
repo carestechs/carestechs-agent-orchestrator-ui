@@ -174,9 +174,13 @@ On `<lg`: stacked single-column; signal panel collapses above the trace.
 
 **Components:**
 - `app-run-header` — title, status badge, intake summary, cancel button.
-- `app-trace-timeline` — vertical list of step groups; each group expandable to show its `executor_call`s. Live-tails the NDJSON stream.
-- `app-trace-record` — one record. Discriminated rendering on `kind`. `executor_call` records show node, mode badge, state badge, and a JSON viewer for `intake`/`result`.
-- `app-signal-form` — visible only when the run is `paused` and there is an awaiting human dispatch. Pre-fills `taskId` from that dispatch's `intake`.
+- `app-trace-timeline` — vertical list of step groups (`step` records grouped by `data.stepNumber` desc) plus a "Run events" panel below for non-step kinds. Live-tails the NDJSON stream.
+- `app-trace-record-card` — one record. Discriminated rendering on `kind`, with per-kind structured fields:
+  - `step`: node name, status pill (`pending`/`dispatched`/`in_progress`/`completed`/`failed`), `dispatchedAt`, computed duration when both timestamps exist, collapsible `nodeInputs`/`nodeResult` JSON, red `error` block when `data.error` is non-null.
+  - `policy_call`: `provider` + `model`, `selectedTool`, `inputTokens`/`outputTokens`, `latencyMs`, collapsible `toolArguments` and `availableTools`.
+  - `webhook_event`: `eventType`, `source`, "unverified" badge when `signatureOk=false`, collapsible `payload`, `processedAt`/`receivedAt`.
+  - `operator_signal`: `name`, `taskId`, `dedupeKey` (monospace), collapsible `payload`, `receivedAt`.
+- `app-awaiting-signal-panel` — visible only when the run is `paused` and the trace contains a `step` whose `data.nodeName` is in the human-pause allowlist (`request_implementation` for v1) with `data.status` ∈ {`dispatched`, `in_progress`}. Pre-fills `taskId` from `step.data.nodeInputs.taskId`. When a `webhook_event` with `eventType='node_started'` matching the same `nodeName` exists, surfaces its payload above the form.
 - `app-cancel-button` — confirms via modal; only enabled on non-terminal runs.
 
 **States:**
@@ -262,3 +266,4 @@ Submit posts to `/api/v1/runs/:id/signals`. On `202`, show success toast and cle
 | 2026-05-10 | FEAT-002 — Run Start built. Documents agent picker empty-state, debounced JSON validator, format button, scoped error mapping (intake / agent / page), `Location.back()` cancel fallback, and the now-active "Start a run" CTAs on `/runs`. |
 | 2026-05-10 | FEAT-003 — Login screen and Auth Guard sections rewritten for the SPA-side passphrase gate. Login no longer makes any network call; the guard checks a `sessionStorage` flag synchronously. 401 from `/v1/*` (typically a rotated orchestrator key) still drives the expired banner. |
 | 2026-05-11 | BUG-001 — endpoint references in component descriptions reframed from `/v1/*` to `/api/v1/*` to match the real orchestrator prefix. No behavior change. |
+| 2026-05-12 | BUG-002 PR B — Trace timeline rewritten around `app-trace-record-card`. Documents per-kind structured rendering (step duration/inputs/result/error, policy_call provider/model/tokens/latency/tools, webhook_event source/signature/payload, operator_signal name/taskId/dedupeKey/payload). Awaiting-signal cue formalized as a human-pause `nodeName` allowlist (`request_implementation`) with `status` ∈ {`dispatched`, `in_progress`}; matching `node_started` webhook is surfaced above the form. |
