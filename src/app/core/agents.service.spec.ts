@@ -40,7 +40,7 @@ describe('AgentsService.list', () => {
           ],
         },
       ],
-      meta: { page: 1, pageSize: 20, total: 1 },
+      meta: { page: 1, pageSize: 20, totalCount: 1 },
     });
     expect(result).toEqual([
       {

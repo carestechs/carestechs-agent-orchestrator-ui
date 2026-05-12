@@ -22,9 +22,9 @@
                   Run <span class="font-mono text-base text-slate-500">{{ r.id }}</span>
                 </h1>
                 <app-run-status-badge [status]="r.status" />
-                @if (r.terminationReason) {
+                @if (r.stopReason) {
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
-                    {{ r.terminationReason }}
+                    {{ r.stopReason }}
                   </span>
                 }
               </div>

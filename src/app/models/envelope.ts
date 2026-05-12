@@ -1,7 +1,9 @@
 export interface Pagination {
   page: number;
   pageSize: number;
-  total: number;
+  // Real orchestrator field is `totalCount`. Source: live capture of
+  // `GET /api/v1/runs` meta block.
+  totalCount: number;
 }
 
 export interface EnvelopeMeta {

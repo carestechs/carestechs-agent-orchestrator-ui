@@ -35,10 +35,10 @@ describe('ApiClient', () => {
     // After FEAT-003: no cookies, Authorization is attached on the SPA side.
     expect(req.request.withCredentials).toBe(false);
     expect(req.request.headers.get('Authorization')).toBe(BEARER);
-    req.flush({ data: [{ id: 'r1' }], meta: { page: 1, pageSize: 20, total: 1 } });
+    req.flush({ data: [{ id: 'r1' }], meta: { page: 1, pageSize: 20, totalCount: 1 } });
     expect(result).toEqual({
       data: [{ id: 'r1' }],
-      meta: { page: 1, pageSize: 20, total: 1 },
+      meta: { page: 1, pageSize: 20, totalCount: 1 },
     });
   });
 

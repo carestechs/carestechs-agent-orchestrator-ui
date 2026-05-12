@@ -39,15 +39,13 @@ List runs.
     {
       "id": "uuid",
       "agentRef": "lifecycle-agent@0.3.0",
-      "status": "paused",
-      "intake": { "featureBriefPath": "docs/work-items/FEAT-042.md" },
+      "status": "failed",
+      "stopReason": "error",
       "startedAt": "2026-05-09T09:01:00Z",
-      "endedAt": null,
-      "lastStepNumber": 17,
-      "terminationReason": null
+      "endedAt": "2026-05-09T09:42:11Z"
     }
   ],
-  "meta": { "page": 1, "pageSize": 20, "total": 53 }
+  "meta": { "page": 1, "pageSize": 20, "totalCount": 53 }
 }
 ```
 

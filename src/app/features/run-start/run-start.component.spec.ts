@@ -23,7 +23,7 @@ const sampleRunSummary: RunSummary = {
   startedAt: '2026-05-10T10:00:00Z',
   endedAt: null,
   lastStepNumber: null,
-  terminationReason: null,
+  stopReason: null,
 };
 
 interface SetupOpts {
