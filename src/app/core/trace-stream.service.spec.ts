@@ -51,6 +51,26 @@ const sampleStep = (id: string, occurredAt: string): string =>
     },
   });
 
+const sampleStepWithStatus = (
+  id: string,
+  status: 'pending' | 'dispatched' | 'in_progress' | 'completed' | 'failed',
+  occurredAt: string,
+): string =>
+  JSON.stringify({
+    kind: 'step',
+    data: {
+      id,
+      stepNumber: 1,
+      nodeName: 'load_work_item',
+      status,
+      nodeInputs: {},
+      nodeResult: null,
+      error: null,
+      dispatchedAt: occurredAt,
+      completedAt: status === 'completed' || status === 'failed' ? occurredAt : null,
+    },
+  });
+
 let svc: TraceStreamService;
 let fetchSpy: ReturnType<typeof vi.fn>;
 
@@ -147,6 +167,55 @@ describe('TraceStreamService', () => {
     s.push(sampleStep('rec-2', 't2') + '\n');
     await new Promise((r) => setTimeout(r, 10));
     expect(svc.records().length).toBe(1);
+  });
+
+  it('replaces a step record in place when a later transition for the same id arrives', async () => {
+    // Real wire: orchestrator emits one step record per status transition
+    // (pending → in_progress → completed), all sharing data.id. Without
+    // dedupe, the live view stacked stale rows.
+    const s = makeStreamingResponse();
+    fetchSpy.mockResolvedValueOnce(s.response);
+    svc.open('r1');
+    s.push(sampleStepWithStatus('step-a', 'pending', '2026-05-09T09:00:01Z') + '\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(svc.records().length).toBe(1);
+    expect((svc.records()[0]! as { data: { status: string } }).data.status).toBe('pending');
+
+    s.push(sampleStepWithStatus('step-a', 'in_progress', '2026-05-09T09:00:02Z') + '\n');
+    s.push(sampleStepWithStatus('step-a', 'completed', '2026-05-09T09:00:03Z') + '\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(svc.records().length).toBe(1);
+    expect((svc.records()[0]! as { data: { status: string } }).data.status).toBe('completed');
+    s.close();
+  });
+
+  it('keeps non-step kinds discrete (does not dedupe by id)', async () => {
+    const s = makeStreamingResponse();
+    fetchSpy.mockResolvedValueOnce(s.response);
+    svc.open('r1');
+    // Two policy_call records — should both appear.
+    const policyCall = (id: string, at: string): string =>
+      JSON.stringify({
+        kind: 'policy_call',
+        data: {
+          id,
+          stepId: 'step-a',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          selectedTool: 'pick_node',
+          toolArguments: {},
+          availableTools: [],
+          inputTokens: 0,
+          outputTokens: 0,
+          latencyMs: 100,
+          createdAt: at,
+        },
+      });
+    s.push(policyCall('pc-1', '2026-05-09T09:00:01Z') + '\n');
+    s.push(policyCall('pc-2', '2026-05-09T09:00:02Z') + '\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(svc.records().length).toBe(2);
+    s.close();
   });
 
   it('caps reconnect attempts at MAX_RETRIES', async () => {

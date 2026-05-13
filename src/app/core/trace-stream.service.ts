@@ -144,7 +144,26 @@ export class TraceStreamService {
       if (rec) parsed.push(rec);
     }
     if (parsed.length === 0) return;
-    this._records.update((arr) => arr.concat(parsed));
+    // The orchestrator emits one `step` record per status transition
+    // (pending → in_progress → completed), all sharing `data.id`. Replace
+    // by id so the live view updates instead of stacking stale rows.
+    // Other kinds are discrete events and accumulate as-is.
+    this._records.update((arr) => {
+      const next = arr.slice();
+      for (const rec of parsed) {
+        if (rec.kind === 'step') {
+          const idx = next.findIndex(
+            (existing) => existing.kind === 'step' && existing.data.id === rec.data.id,
+          );
+          if (idx >= 0) {
+            next[idx] = rec;
+            continue;
+          }
+        }
+        next.push(rec);
+      }
+      return next;
+    });
   }
 
   private scheduleRetry(): void {
