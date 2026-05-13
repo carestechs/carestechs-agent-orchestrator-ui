@@ -14,8 +14,14 @@ import { AgentsService } from '../../core/agents.service';
 import { RunsService } from '../../core/runs.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
 import { FullPageErrorComponent } from '../../shared/full-page-error.component';
-import type { Agent, StartRunRequest } from '../../models';
+import type { Agent, RunIntake, StartRunRequest, WorkItem } from '../../models';
 import { intakeJsonValidator, maxStepsValidator, parseIntake } from './intake-json.validator';
+
+export type IntakeMode = 'structured' | 'json';
+
+// Common lifecycle-agent kinds. The string is open-ended on the wire, so this
+// is just a UX-friendly default set; operators can type any value in JSON mode.
+export const WORK_ITEM_KINDS: readonly string[] = ['FEAT', 'BUG', 'IMP', 'DOC', 'CHORE'] as const;
 
 export type SubmitErrorScope = 'intake' | 'agent' | 'page';
 export interface SubmitError {
@@ -52,26 +58,94 @@ export class RunStartComponent implements OnInit {
   readonly agentsLoading = signal(true);
   readonly agentsError = signal<{ title: string; detail?: string; code?: string } | null>(null);
 
+  readonly intakeMode = signal<IntakeMode>('structured');
+  readonly workItemKinds = WORK_ITEM_KINDS;
+
+  // The form has both structured controls and a JSON-mode control. Only the
+  // active mode's controls participate in validity (see refreshIntakeValidity).
   readonly form = this.fb.group({
     agentRef: this.fb.nonNullable.control('', { validators: [Validators.required] }),
-    intake: this.fb.nonNullable.control('', { validators: [intakeJsonValidator] }),
+    workItemId: this.fb.nonNullable.control('', { validators: [Validators.required] }),
+    workItemKind: this.fb.nonNullable.control(WORK_ITEM_KINDS[0]!, { validators: [Validators.required] }),
+    workItemContent: this.fb.nonNullable.control('', { validators: [Validators.required] }),
+    intakeJson: this.fb.nonNullable.control(''),
     maxSteps: this.fb.control<number | null>(null, { validators: [maxStepsCtrlValidator] }),
   });
 
-  // Debounced intake value for the inline parse-error message. 200ms feels
-  // responsive without flickering on every keystroke. The form's underlying
-  // validity (which gates the submit button) is NOT debounced — that runs
-  // synchronously per keystroke through `intakeJsonValidator`.
-  private readonly intakeValueDebounced = toSignal(
-    this.form.controls.intake.valueChanges.pipe(
-      startWith(this.form.controls.intake.value),
+  toggleIntakeMode(): void {
+    const next: IntakeMode = this.intakeMode() === 'structured' ? 'json' : 'structured';
+    // When entering JSON mode, pre-fill from the structured fields (if any)
+    // so the operator has a working starting point. When leaving JSON mode,
+    // try to round-trip any current JSON back into the structured fields.
+    if (next === 'json') {
+      const intake = this.buildStructuredIntake();
+      this.form.controls.intakeJson.setValue(
+        JSON.stringify(intake, null, 2),
+        { emitEvent: false },
+      );
+    } else {
+      const parsed = parseIntake(this.form.controls.intakeJson.value);
+      if (parsed.valid && parsed.parsed) {
+        const wi = (parsed.parsed as { workItem?: WorkItem }).workItem;
+        if (wi) {
+          this.form.patchValue(
+            {
+              workItemId: wi.id ?? '',
+              workItemKind: wi.kind ?? WORK_ITEM_KINDS[0]!,
+              workItemContent: wi.content ?? '',
+            },
+            { emitEvent: false },
+          );
+        }
+      }
+    }
+    this.intakeMode.set(next);
+    this.refreshIntakeValidity();
+  }
+
+  private refreshIntakeValidity(): void {
+    const mode = this.intakeMode();
+    if (mode === 'structured') {
+      this.form.controls.workItemId.setValidators([Validators.required]);
+      this.form.controls.workItemKind.setValidators([Validators.required]);
+      this.form.controls.workItemContent.setValidators([Validators.required]);
+      this.form.controls.intakeJson.setValidators([]);
+    } else {
+      this.form.controls.workItemId.setValidators([]);
+      this.form.controls.workItemKind.setValidators([]);
+      this.form.controls.workItemContent.setValidators([]);
+      this.form.controls.intakeJson.setValidators([intakeJsonValidator]);
+    }
+    this.form.controls.workItemId.updateValueAndValidity({ emitEvent: false });
+    this.form.controls.workItemKind.updateValueAndValidity({ emitEvent: false });
+    this.form.controls.workItemContent.updateValueAndValidity({ emitEvent: false });
+    this.form.controls.intakeJson.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private buildStructuredIntake(): RunIntake {
+    return {
+      workItem: {
+        id: this.form.controls.workItemId.value.trim(),
+        kind: this.form.controls.workItemKind.value.trim(),
+        content: this.form.controls.workItemContent.value,
+      },
+    };
+  }
+
+  // Debounced intake-JSON value for the inline parse-error message. Only
+  // meaningful in JSON mode; in structured mode this signal is unused.
+  // 200ms feels responsive without flickering on every keystroke.
+  private readonly intakeJsonValueDebounced = toSignal(
+    this.form.controls.intakeJson.valueChanges.pipe(
+      startWith(this.form.controls.intakeJson.value),
       debounceTime(200),
     ),
-    { initialValue: this.form.controls.intake.value },
+    { initialValue: this.form.controls.intakeJson.value },
   );
 
   readonly intakeErrorMessage = computed<string | null>(() => {
-    const value = this.intakeValueDebounced() ?? '';
+    if (this.intakeMode() !== 'json') return null;
+    const value = this.intakeJsonValueDebounced() ?? '';
     if (value.trim() === '') return null;
     const r = parseIntake(value);
     return r.valid ? null : (r.error ?? 'Invalid JSON');
@@ -135,10 +209,11 @@ export class RunStartComponent implements OnInit {
   };
 
   onFormat(): void {
-    const raw = this.form.controls.intake.value;
+    if (this.intakeMode() !== 'json') return;
+    const raw = this.form.controls.intakeJson.value;
     const r = parseIntake(raw);
     if (r.valid && r.parsed) {
-      this.form.controls.intake.setValue(JSON.stringify(r.parsed, null, 2));
+      this.form.controls.intakeJson.setValue(JSON.stringify(r.parsed, null, 2));
     }
     // No-op on invalid; the inline error already explains why.
   }
@@ -157,14 +232,19 @@ export class RunStartComponent implements OnInit {
     event.preventDefault();
     if (this.submitDisabled()) return;
 
-    const intakeRaw = this.form.controls.intake.value;
-    const parsed = parseIntake(intakeRaw);
-    if (!parsed.valid || !parsed.parsed) return;
+    let intake: RunIntake;
+    if (this.intakeMode() === 'structured') {
+      intake = this.buildStructuredIntake();
+    } else {
+      const parsed = parseIntake(this.form.controls.intakeJson.value);
+      if (!parsed.valid || !parsed.parsed) return;
+      intake = parsed.parsed as RunIntake;
+    }
 
     const maxSteps = this.form.controls.maxSteps.value;
     const req: StartRunRequest = {
       agentRef: this.form.controls.agentRef.value,
-      intake: parsed.parsed,
+      intake,
       // Omit `budget` entirely when blank — the orchestrator applies its
       // default. Sending `budget: { maxSteps: null }` is rejected upstream.
       ...(maxSteps !== null && maxSteps !== undefined ? { budget: { maxSteps } } : {}),

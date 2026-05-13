@@ -94,35 +94,99 @@
         }
       </div>
 
-      <div>
+      <fieldset>
         <div class="flex items-baseline justify-between mb-1.5">
-          <label for="intake" class="block text-sm font-medium text-slate-700">Intake (JSON)</label>
+          <legend class="block text-sm font-medium text-slate-700">Intake</legend>
           <button
             type="button"
-            (click)="onFormat()"
-            data-testid="format-button"
+            (click)="toggleIntakeMode()"
+            data-testid="intake-mode-toggle"
             class="text-xs text-sky-500 hover:text-sky-600 font-medium"
-          >Format</button>
+          >
+            @if (intakeMode() === 'structured') { Edit as JSON } @else { Use structured form }
+          </button>
         </div>
-        <textarea
-          id="intake"
-          formControlName="intake"
-          rows="12"
-          spellcheck="false"
-          data-testid="intake-editor"
-          [attr.aria-invalid]="intakeErrorMessage() !== null"
-          [attr.aria-describedby]="intakeErrorMessage() !== null ? 'intake-error' : null"
-          class="w-full font-mono text-sm rounded-lg border px-3 py-2 focus:ring-2 outline-none"
-          [class.border-slate-300]="intakeErrorMessage() === null"
-          [class.focus:border-sky-500]="intakeErrorMessage() === null"
-          [class.focus:ring-sky-100]="intakeErrorMessage() === null"
-          [class.border-red-400]="intakeErrorMessage() !== null"
-          [class.focus:border-red-500]="intakeErrorMessage() !== null"
-          [class.focus:ring-red-100]="intakeErrorMessage() !== null"
-        ></textarea>
-        @if (intakeErrorMessage(); as msg) {
-          <p id="intake-error" role="status" data-testid="intake-error" class="text-red-500 text-sm mt-1">{{ msg }}</p>
+
+        @if (intakeMode() === 'structured') {
+          <div class="space-y-3" data-testid="intake-structured">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="workItemId" class="block text-xs font-medium text-slate-600 mb-1">Work item ID</label>
+                <input
+                  id="workItemId"
+                  type="text"
+                  formControlName="workItemId"
+                  placeholder="FEAT-100"
+                  spellcheck="false"
+                  data-testid="work-item-id"
+                  class="w-full font-mono text-sm rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+                />
+                @if (form.controls.workItemId.touched && form.controls.workItemId.invalid) {
+                  <p class="text-red-500 text-xs mt-1" data-testid="work-item-id-error">Work item ID is required.</p>
+                }
+              </div>
+              <div>
+                <label for="workItemKind" class="block text-xs font-medium text-slate-600 mb-1">Kind</label>
+                <select
+                  id="workItemKind"
+                  formControlName="workItemKind"
+                  data-testid="work-item-kind"
+                  class="w-full text-sm rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+                >
+                  @for (k of workItemKinds; track k) {
+                    <option [value]="k">{{ k }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div>
+              <label for="workItemContent" class="block text-xs font-medium text-slate-600 mb-1">Content (markdown)</label>
+              <textarea
+                id="workItemContent"
+                formControlName="workItemContent"
+                rows="12"
+                spellcheck="false"
+                placeholder="# FEAT-100 — My feature&#10;&#10;body of the brief..."
+                data-testid="work-item-content"
+                class="w-full font-mono text-sm rounded-lg border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none"
+              ></textarea>
+              @if (form.controls.workItemContent.touched && form.controls.workItemContent.invalid) {
+                <p class="text-red-500 text-xs mt-1" data-testid="work-item-content-error">Content is required.</p>
+              }
+            </div>
+          </div>
+        } @else {
+          <div data-testid="intake-json-mode">
+            <div class="flex items-baseline justify-end mb-1.5">
+              <button
+                type="button"
+                (click)="onFormat()"
+                data-testid="format-button"
+                class="text-xs text-sky-500 hover:text-sky-600 font-medium"
+              >Format</button>
+            </div>
+            <textarea
+              id="intake"
+              formControlName="intakeJson"
+              rows="14"
+              spellcheck="false"
+              data-testid="intake-editor"
+              [attr.aria-invalid]="intakeErrorMessage() !== null"
+              [attr.aria-describedby]="intakeErrorMessage() !== null ? 'intake-error' : null"
+              class="w-full font-mono text-sm rounded-lg border px-3 py-2 focus:ring-2 outline-none"
+              [class.border-slate-300]="intakeErrorMessage() === null"
+              [class.focus:border-sky-500]="intakeErrorMessage() === null"
+              [class.focus:ring-sky-100]="intakeErrorMessage() === null"
+              [class.border-red-400]="intakeErrorMessage() !== null"
+              [class.focus:border-red-500]="intakeErrorMessage() !== null"
+              [class.focus:ring-red-100]="intakeErrorMessage() !== null"
+            ></textarea>
+            @if (intakeErrorMessage(); as msg) {
+              <p id="intake-error" role="status" data-testid="intake-error" class="text-red-500 text-sm mt-1">{{ msg }}</p>
+            }
+          </div>
         }
+
         @if (submitError()?.scope === 'intake') {
           <div class="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="intake-server-error">
             <div class="font-medium">{{ submitError()!.title }}</div>
@@ -131,7 +195,7 @@
             }
           </div>
         }
-      </div>
+      </fieldset>
 
       <div class="max-w-xs">
         <label for="maxSteps" class="block text-sm font-medium text-slate-700 mb-1.5">

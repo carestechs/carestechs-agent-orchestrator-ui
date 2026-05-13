@@ -63,10 +63,18 @@ Start a new run. Returns `202` immediately.
 ```json
 {
   "agentRef": "lifecycle-agent@0.3.0",
-  "intake": { "featureBriefPath": "docs/work-items/FEAT-042.md" },
+  "intake": {
+    "workItem": {
+      "id": "FEAT-100",
+      "kind": "FEAT",
+      "content": "# FEAT-100 — My feature\n\nbody of the brief..."
+    }
+  },
   "budget": { "maxSteps": 200 }
 }
 ```
+
+Lifecycle-agent v0.3+ takes the inline `workItem` brief shown above. Pre-v0.3 agents used `intake.featureBriefPath` (or `workItemPath`); those are still accepted on the wire for backward compatibility.
 
 **Response 202:** `data` is the new `RunSummary`. `meta` is `null`.
 

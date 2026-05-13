@@ -14,7 +14,7 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmModalService } from '../../shared/confirm-modal.service';
 import { RunStatusBadgeComponent } from '../../shared/run-status-badge.component';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { RunDetail, RunStatus, StepRecord, TraceRecord } from '../../models';
+import type { RunDetail, RunStatus, StepRecord, TraceRecord, WorkItem } from '../../models';
 import { AwaitingSignalPanelComponent } from './awaiting-signal-panel.component';
 import { TraceRecordCardComponent } from './trace-record-card.component';
 import { HUMAN_PAUSE_NODE_NAMES } from './awaiting-signal-panel.component';
@@ -69,6 +69,14 @@ export class RunDetailComponent {
   isAwaiting(rec: TraceRecord): boolean {
     return rec.kind === 'step' && this.awaitingIds().has((rec as StepRecord).data.id);
   }
+
+  readonly workItem = computed<WorkItem | null>(() => {
+    const r = this.run();
+    if (!r) return null;
+    const wi = (r.intake as { workItem?: WorkItem } | undefined)?.workItem;
+    if (!wi || typeof wi.id !== 'string' || typeof wi.kind !== 'string') return null;
+    return wi;
+  });
 
   readonly runStatusForPanel = computed<RunStatus>(() => this.run()?.status ?? 'running');
 

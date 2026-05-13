@@ -94,7 +94,7 @@ function runSummary(state: MockState): Record<string, unknown> {
 function runDetail(state: MockState): Record<string, unknown> {
   return {
     ...runSummary(state),
-    intake: { featureBriefPath: 'docs/work-items/FEAT-001.md' },
+    intake: { workItem: { id: 'FEAT-001', kind: 'FEAT', content: '# FEAT-001\n\nseeded e2e brief' } },
     lastStepNumber: 1,
     traceUri: `/api/v1/runs/${SEEDED_RUN_ID}/trace`,
     budget: { maxSteps: 100 },

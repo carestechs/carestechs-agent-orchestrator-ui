@@ -12,7 +12,20 @@ export type StopReason =
   | 'cancelled'
   | (string & {});
 
+// Lifecycle-agent v0.3+ takes an inline work item brief instead of a path.
+// `kind` is open-ended (FEAT / BUG / IMP / DOC / …); we accept any string for
+// forward-compat with agent-defined kinds. Source: live capture of POST
+// /api/v1/runs against lifecycle-agent@0.3.0.
+export interface WorkItem {
+  id: string;
+  kind: string;
+  content: string;
+}
+
 export interface RunIntake {
+  workItem?: WorkItem;
+  // Legacy path-based shapes — kept optional so old runs still parse and the
+  // run-detail header has something to show. New runs should use `workItem`.
   featureBriefPath?: string;
   workItemPath?: string;
   [key: string]: unknown;
