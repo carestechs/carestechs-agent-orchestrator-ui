@@ -127,9 +127,16 @@ export class AwaitingSignalPanelComponent {
     return [...ids];
   });
 
-  readonly formVisible = computed(
-    () => this.runStatus() === 'paused' && this.latestDispatch() !== null,
-  );
+  // Real-world wire: the orchestrator does NOT flip the run to `paused` while
+  // a human-pause node sits in `pending` — the run stays `running` and the
+  // operator's signal IS the transition. So we gate on "not terminal" instead
+  // of "== paused", and rely on `latestDispatch()` to confirm there's actually
+  // a human-pause node awaiting input.
+  readonly formVisible = computed(() => {
+    const s = this.runStatus();
+    if (s === 'completed' || s === 'failed' || s === 'cancelled') return false;
+    return this.latestDispatch() !== null;
+  });
 
   readonly taskIdMode = computed<'single' | 'picker'>(() =>
     this.prefilledTaskIds().length > 1 ? 'picker' : 'single',

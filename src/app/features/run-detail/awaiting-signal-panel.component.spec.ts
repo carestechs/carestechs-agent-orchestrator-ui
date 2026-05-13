@@ -259,6 +259,30 @@ describe('AwaitingSignalPanelComponent', () => {
     expect(component.form.controls.taskId.value).toBe('T-001');
   });
 
+  it('shows the form when runStatus is "running" with a pending human-pause step (real wire)', () => {
+    // The orchestrator does NOT flip the run to `paused` while a human node
+    // is pending — it stays `running` and the operator's signal is the
+    // transition. Gating on `=== "paused"` hid the form on every real run.
+    const pending = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-pending', {
+      status: 'pending',
+      dispatchedAt: null,
+    });
+    const { component } = setup({ records: [pending], runStatus: 'running' });
+    expect(component.formVisible()).toBe(true);
+  });
+
+  it.each(['completed', 'failed', 'cancelled'] as const)(
+    'hides the form when runStatus is terminal (%s) even if a dispatch is present',
+    (status) => {
+      const pending = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-pending', {
+        status: 'pending',
+        dispatchedAt: null,
+      });
+      const { component } = setup({ records: [pending], runStatus: status });
+      expect(component.formVisible()).toBe(false);
+    },
+  );
+
   it('treats status="in_progress" the same as "dispatched" for allowlisted nodes', () => {
     const inProgress = dispatchedStep('T-001', '2026-05-09T09:00:01Z', 's-ip', {
       status: 'in_progress',
