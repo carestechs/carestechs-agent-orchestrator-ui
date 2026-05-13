@@ -22,9 +22,10 @@ test.describe('start a run', () => {
     await expect(agentPicker).toBeVisible();
     await agentPicker.selectOption({ label: 'demo-agent@1.0.0' });
 
-    await page.locator('[data-testid="intake-editor"]').fill(
-      JSON.stringify({ featureBriefPath: 'docs/work-items/FEAT-002.md' }, null, 2),
-    );
+    // Structured intake mode is the default — fill the three workItem fields.
+    await page.locator('[data-testid="work-item-id"]').fill('FEAT-002');
+    await page.locator('[data-testid="work-item-kind"]').selectOption({ value: 'FEAT' });
+    await page.locator('[data-testid="work-item-content"]').fill('# FEAT-002\n\ne2e brief');
 
     const submit = page.locator('[data-testid="submit-button"]');
     await expect(submit).toBeEnabled();
@@ -45,6 +46,8 @@ test.describe('start a run', () => {
 
     await page.goto('/runs/new');
     await page.locator('[data-testid="agent-picker"]').selectOption({ label: 'demo-agent@1.0.0' });
+    // Switch to JSON mode and type malformed JSON.
+    await page.locator('[data-testid="intake-mode-toggle"]').click();
     await page.locator('[data-testid="intake-editor"]').fill('{not json');
 
     // Wait past the 200ms debounce on the inline parse-error display.

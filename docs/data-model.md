@@ -41,9 +41,19 @@ export type StopReason =
   | 'cancelled'
   | (string & {});
 
+// Lifecycle-agent v0.3+ takes an inline work item brief — no more paths.
+// `kind` is open-ended (FEAT / BUG / IMP / DOC / …). Legacy path-based
+// fields are kept optional so old runs still render.
+export interface WorkItem {
+  id: string;
+  kind: string;
+  content: string;
+}
+
 export interface RunIntake {
-  featureBriefPath?: string;
-  workItemPath?: string;
+  workItem?: WorkItem;
+  featureBriefPath?: string;    // legacy; pre-v0.3 path-based shape
+  workItemPath?: string;        // legacy; pre-v0.3 path-based shape
   // Other fields are agent-specific; treat as opaque map for unknown agents.
   [key: string]: unknown;
 }
@@ -309,3 +319,4 @@ There are no `WorkItem` or `Task` entities exposed in v1. `RunIntake.featureBrie
 | 2026-05-12 | BUG-002 PR B — No wire-shape changes; documents how the SPA renders the envelope. Each kind now exposes its structured fields via `app-trace-record-card` (see `docs/ui-specification.md` § Run Detail). Awaiting-human heuristic upgraded from "any `step` in `dispatched`" to "`step.data.nodeName` in the human-pause allowlist (`request_implementation`) AND `data.status` ∈ {`dispatched`, `in_progress`}", with a matching `webhook_event` (`eventType='node_started'`) surfaced above the signal form when present. |
 | 2026-05-12 | BUG-002 PR D — Awaiting-human heuristic widened to also accept `status='pending'` (the real orchestrator never auto-dispatches human-pause nodes; they sit in `pending` until the operator submits). No wire-shape change. |
 | 2026-05-12 | BUG-003 — `RunSummary` realigned to the real list wire after the runs list crashed on real failed runs. Field rename `terminationReason` → `stopReason` (open-ended union, accept any string for forward-compat). `intake` and `lastStepNumber` made optional — they're NOT in the list response, only in `GET /api/v1/runs/{id}` detail. Source: captured response from a live `lifecycle-agent@0.3.0` run list. |
+| 2026-05-12 | FEAT-006 — `RunIntake` extended with the new inline `workItem: { id, kind, content }` shape used by lifecycle-agent v0.3+. Legacy `featureBriefPath` / `workItemPath` retained as optional fallbacks so older runs still render. New `WorkItem` interface added; `kind` is an open-ended string. |

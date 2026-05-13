@@ -28,9 +28,13 @@
                   </span>
                 }
               </div>
-              <p class="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+              <p class="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-1 items-center">
                 <span class="font-mono">{{ r.agentRef }}</span>
-                @if (r.intake['featureBriefPath'] || r.intake['workItemPath']) {
+                @if (workItem(); as wi) {
+                  <span>·</span>
+                  <span class="font-mono text-slate-700">{{ wi.id }}</span>
+                  <span class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">{{ wi.kind }}</span>
+                } @else if (r.intake['featureBriefPath'] || r.intake['workItemPath']) {
                   <span>·</span>
                   <span>{{ r.intake['featureBriefPath'] || r.intake['workItemPath'] }}</span>
                 }

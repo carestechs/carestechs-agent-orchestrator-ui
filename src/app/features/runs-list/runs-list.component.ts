@@ -15,7 +15,7 @@ import { FullPageErrorComponent } from '../../shared/full-page-error.component';
 import { RunsService } from '../../core/runs.service';
 import { AgentsService } from '../../core/agents.service';
 import { ProblemDetailsError } from '../../core/problem-details.error';
-import type { Agent, Pagination, RunStatus, RunSummary } from '../../models';
+import type { Agent, Pagination, RunStatus, RunSummary, WorkItem } from '../../models';
 import { formatRelativeTime } from './relative-time';
 
 const STATUS_VALUES: RunStatus[] = ['running', 'paused', 'completed', 'failed', 'cancelled'];
@@ -71,6 +71,12 @@ export class RunsListComponent {
   private visibilityHandler: (() => void) | null = null;
 
   readonly statusOptions = STATUS_VALUES;
+
+  workItemLabel(run: RunSummary): string | null {
+    const wi = (run.intake as { workItem?: WorkItem } | undefined)?.workItem;
+    if (!wi || typeof wi.id !== 'string') return null;
+    return wi.kind ? `${wi.id} · ${wi.kind}` : wi.id;
+  }
 
   formatRelative(iso: string): string {
     return formatRelativeTime(iso);

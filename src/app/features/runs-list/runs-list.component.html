@@ -76,7 +76,13 @@
                 <div class="font-mono text-xs text-slate-500 truncate">{{ run.id }}</div>
               </div>
               <div class="col-span-4 text-sm text-slate-600 truncate">
-                {{ run.intake?.['featureBriefPath'] ?? run.intake?.['workItemPath'] ?? '—' }}
+                @if (workItemLabel(run); as wi) {
+                  <span class="font-mono">{{ wi }}</span>
+                } @else if (run.intake?.['featureBriefPath'] ?? run.intake?.['workItemPath']; as p) {
+                  {{ p }}
+                } @else {
+                  —
+                }
               </div>
               <div class="col-span-2 text-sm text-slate-500">{{ formatRelative(run.startedAt) }}</div>
               <div class="col-span-1 text-sm text-slate-500 text-right">

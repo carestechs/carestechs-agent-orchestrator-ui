@@ -62,9 +62,22 @@ function setup(opts: SetupOpts = {}) {
 }
 
 async function fillValidForm(component: RunStartComponent, fixture: { detectChanges: () => void }) {
+  // Structured mode is the default. Set the three workItem fields.
   component.form.controls.agentRef.setValue('lifecycle-agent@0.3.0');
-  component.form.controls.intake.setValue('{ "featureBriefPath": "docs/feat.md" }');
+  component.form.controls.workItemId.setValue('FEAT-100');
+  component.form.controls.workItemKind.setValue('FEAT');
+  component.form.controls.workItemContent.setValue('# FEAT-100\n\nbody');
   // Wait for the form's status pipeline to settle.
+  await Promise.resolve();
+  fixture.detectChanges();
+}
+
+async function fillValidJsonForm(component: RunStartComponent, fixture: { detectChanges: () => void }) {
+  // Some legacy assertions expect the JSON-mode wire path. Flip to JSON mode
+  // and write a valid JSON payload there.
+  component.toggleIntakeMode();
+  component.form.controls.agentRef.setValue('lifecycle-agent@0.3.0');
+  component.form.controls.intakeJson.setValue('{ "workItem": { "id": "FEAT-100", "kind": "FEAT", "content": "# x" } }');
   await Promise.resolve();
   fixture.detectChanges();
 }
@@ -130,8 +143,7 @@ describe('RunStartComponent', () => {
     expect(optionTexts).toContain('spec-writer@0.1.2');
   });
 
-  it('keeps submit disabled while intake is empty and enables it after a valid agent + JSON', async () => {
-    vi.useFakeTimers();
+  it('keeps submit disabled until all structured fields are filled', async () => {
     const { fixture, component } = setup();
     fixture.detectChanges();
     await Promise.resolve();
@@ -139,19 +151,23 @@ describe('RunStartComponent', () => {
     expect(component.submitDisabled()).toBe(true);
 
     component.form.controls.agentRef.setValue('lifecycle-agent@0.3.0');
-    component.form.controls.intake.setValue('{ "featureBriefPath": "x.md" }');
-    vi.advanceTimersByTime(250);
+    component.form.controls.workItemId.setValue('FEAT-100');
+    component.form.controls.workItemKind.setValue('FEAT');
+    component.form.controls.workItemContent.setValue('# brief');
+    await Promise.resolve();
     fixture.detectChanges();
     expect(component.submitDisabled()).toBe(false);
   });
 
-  it('shows the inline parse error after the 200ms debounce on malformed JSON', async () => {
+  it('JSON mode: inline parse error appears after the 200ms debounce on malformed JSON', async () => {
     vi.useFakeTimers();
     const { fixture, component } = setup();
     fixture.detectChanges();
     await Promise.resolve();
     fixture.detectChanges();
-    component.form.controls.intake.setValue('{not json');
+    component.toggleIntakeMode();
+    fixture.detectChanges();
+    component.form.controls.intakeJson.setValue('{not json');
     fixture.detectChanges();
     expect(component.intakeErrorMessage()).toBeNull();
     vi.advanceTimersByTime(250);
@@ -162,19 +178,21 @@ describe('RunStartComponent', () => {
     expect(root.querySelector('[data-testid="intake-error"]')).not.toBeNull();
   });
 
-  it('Format button pretty-prints valid intake and is a no-op on invalid', async () => {
+  it('JSON mode: Format button pretty-prints valid intake and is a no-op on invalid', async () => {
     const { fixture, component } = setup();
     fixture.detectChanges();
     await Promise.resolve();
     fixture.detectChanges();
-    component.form.controls.intake.setValue('{"a":1,"b":{"c":2}}');
+    component.toggleIntakeMode();
+    fixture.detectChanges();
+    component.form.controls.intakeJson.setValue('{"a":1,"b":{"c":2}}');
     component.onFormat();
-    expect(component.form.controls.intake.value).toBe(JSON.stringify({ a: 1, b: { c: 2 } }, null, 2));
+    expect(component.form.controls.intakeJson.value).toBe(JSON.stringify({ a: 1, b: { c: 2 } }, null, 2));
 
-    component.form.controls.intake.setValue('{not json');
-    const before = component.form.controls.intake.value;
+    component.form.controls.intakeJson.setValue('{not json');
+    const before = component.form.controls.intakeJson.value;
     component.onFormat();
-    expect(component.form.controls.intake.value).toBe(before);
+    expect(component.form.controls.intakeJson.value).toBe(before);
   });
 
   it('maxSteps validator: blank → valid; 0 → invalid; 12 → valid; 1.5 → invalid', async () => {
@@ -242,7 +260,7 @@ describe('RunStartComponent', () => {
     expect(startRunSpy).toHaveBeenCalledTimes(1);
     expect(startRunSpy.mock.calls[0]![0]).toEqual({
       agentRef: 'lifecycle-agent@0.3.0',
-      intake: { featureBriefPath: 'docs/feat.md' },
+      intake: { workItem: { id: 'FEAT-100', kind: 'FEAT', content: '# FEAT-100\n\nbody' } },
     });
     expect(component.submitting()).toBe(true);
 
@@ -265,7 +283,7 @@ describe('RunStartComponent', () => {
     component.onSubmit(new Event('submit'));
     expect(startRunSpy.mock.calls[0]![0]).toEqual({
       agentRef: 'lifecycle-agent@0.3.0',
-      intake: { featureBriefPath: 'docs/feat.md' },
+      intake: { workItem: { id: 'FEAT-100', kind: 'FEAT', content: '# FEAT-100\n\nbody' } },
       budget: { maxSteps: 150 },
     });
 
@@ -305,16 +323,16 @@ describe('RunStartComponent', () => {
     fixture.detectChanges();
     await Promise.resolve();
     fixture.detectChanges();
-    await fillValidForm(component, fixture);
+    await fillValidJsonForm(component, fixture);
 
-    const typedIntake = component.form.controls.intake.value;
+    const typedIntake = component.form.controls.intakeJson.value;
     component.onSubmit(new Event('submit'));
     await Promise.resolve();
     fixture.detectChanges();
 
     expect(component.submitError()?.scope).toBe('intake');
     expect(component.submitting()).toBe(false);
-    expect(component.form.controls.intake.value).toBe(typedIntake);
+    expect(component.form.controls.intakeJson.value).toBe(typedIntake);
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="intake-server-error"]')).not.toBeNull();
   });
